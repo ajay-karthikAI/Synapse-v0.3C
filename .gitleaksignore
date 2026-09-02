@@ -1,4 +1,4 @@
-568c4fa92a4a8246140454f8cab11b49cf790099:tests/test_telemetry_privacy.py:private-key:193
-568c4fa92a4a8246140454f8cab11b49cf790099:tests/test_telemetry_privacy.py:generic-api-key:58
-568c4fa92a4a8246140454f8cab11b49cf790099:tests/test_telemetry_privacy.py:gcp-api-key:191
-568c4fa92a4a8246140454f8cab11b49cf790099:tests/test_telemetry_privacy.py:jwt:187
+b1d787d4c484d1bff8a52cbbff7e19227b7ce34c:tests/test_telemetry_privacy.py:private-key:193
+b1d787d4c484d1bff8a52cbbff7e19227b7ce34c:tests/test_telemetry_privacy.py:generic-api-key:58
+b1d787d4c484d1bff8a52cbbff7e19227b7ce34c:tests/test_telemetry_privacy.py:gcp-api-key:191
+b1d787d4c484d1bff8a52cbbff7e19227b7ce34c:tests/test_telemetry_privacy.py:jwt:187
