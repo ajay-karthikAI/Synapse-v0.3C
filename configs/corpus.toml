@@ -1,0 +1,145 @@
+# configs/corpus.toml
+# ===========================================================================
+# Production corpus build.
+#
+#   python -m synapse.cli.build_corpus --config configs/corpus.toml
+#
+# The real build configuration, not the example. It differs from
+# configs/corpus.example.toml in one respect that matters: every query carries
+# an EVIDENCE-TYPE EXCLUSION filter.
+#
+# What this fixes
+# ---------------
+# The corpus this replaces was assembled from unfiltered topic queries. Of its
+# 847 documents: 88 were case reports, 15 animal or preclinical studies, 19
+# mechanism or molecular papers. Every one is peer-reviewed and legitimate
+# research; none is a basis for telling a patient what to ask their clinician.
+# A case report describes one patient. A mouse study describes a mouse. PubMed
+# indexes all of it equally, retrieval could not tell the difference, and
+# measurably did not -- "what are the side effects" returned a
+# phytopharmaceuticals review as its top hit.
+#
+# EXCLUSION, NOT ADMISSION. The filter names what may not enter. It does not
+# restrict entry to guidelines and systematic reviews: measured against PubMed,
+# an admit-only-guidelines filter retains 3% of the literature, while this
+# exclusion set retains 94%. The problem is roughly 12% of the corpus, and
+# solving it by discarding 97% of the source material would trade one defect
+# for a worse one. RCTs, cohort studies, ordinary reviews and everything else
+# still enter.
+#
+# Applied at INGESTION rather than retrieval, deliberately: a document that
+# never enters the corpus cannot be surfaced by a later change to ranking.
+#
+# This is a mechanical filter over publisher metadata. It is NOT clinical
+# review, it does not assess whether a study is good, and no document it admits
+# is thereby approved for use. Approval is a human decision recorded in a source
+# pack -- see docs/SOURCE_GOVERNANCE.md.
+# ===========================================================================
+
+[corpus]
+version = "corpus-v4-filtered"           # Bumped from the unfiltered build; the composition changed
+index_version = "1"
+output_dir = "artifacts/corpus-v4"       # Gitignored build output
+source_pack_version = "sp-2026.09.1"
+include_retracted = false                # Retracted and expression-of-concern records excluded, and listed individually in the build report
+
+[queries]
+# Raised from the example's 20. The exclusion filter costs about 6% of results,
+# and the topic list below is broad, so this is sized to produce a corpus LARGER
+# than the 847-document build it replaces. Breadth is the point of the product:
+# a patient arriving for any appointment should find something, so the corpus
+# spans conditions across specialties rather than covering a few topics deeply
+# enough to demo well.
+max_results_per_query = 60
+sort = "relevance"
+
+# The evidence-type filter appended to every term below:
+#
+#   NOT (case reports[pt])
+#       Single-patient reports. 88 were in the previous build.
+#   NOT (animals[mh] NOT humans[mh])
+#       The standard PubMed construction for human studies only. The inner NOT
+#       is required: animals[mh] alone would also drop human studies carrying an
+#       animal cross-reference.
+#   NOT (in vitro techniques[mh])
+#       Bench work. NOTE: "in vitro[pt]" is NOT a publication type -- PubMed
+#       reports phrasesnotfound and silently returns the unfiltered set, so the
+#       MeSH term is used instead. Verified against esearch before adoption.
+terms = [
+  # -- endocrine / metabolic ------------------------------------------------
+  "type 2 diabetes management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "HbA1c monitoring targets diabetes NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "diabetic neuropathy retinopathy screening NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "hypothyroidism diagnosis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "obesity weight management adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "gout hyperuricaemia management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- cardiovascular -------------------------------------------------------
+  "hypertension treatment NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "heart failure management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "atrial fibrillation anticoagulation NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "hyperlipidaemia statin therapy NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "coronary artery disease secondary prevention NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- respiratory ----------------------------------------------------------
+  "asthma symptoms management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "chronic obstructive pulmonary disease management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "obstructive sleep apnoea diagnosis treatment NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- renal / urology ------------------------------------------------------
+  "chronic kidney disease staging management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "urinary tract infection management adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "benign prostatic hyperplasia management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- gastroenterology -----------------------------------------------------
+  "irritable bowel syndrome management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "inflammatory bowel disease management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "gastro-oesophageal reflux disease management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "coeliac disease diagnosis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "chronic liver disease fatty liver management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- neurology ------------------------------------------------------------
+  "migraine prevention treatment NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "epilepsy management adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "stroke secondary prevention NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "dementia diagnosis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "parkinson disease management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "multiple sclerosis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- musculoskeletal ------------------------------------------------------
+  "osteoarthritis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "rheumatoid arthritis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "osteoporosis fracture prevention NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "chronic low back pain management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "fibromyalgia management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- mental health --------------------------------------------------------
+  "depression treatment adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "anxiety disorder treatment adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "insomnia management adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "attention deficit hyperactivity disorder adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- women's and men's health --------------------------------------------
+  "menopause symptom management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "polycystic ovary syndrome management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "endometriosis diagnosis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- dermatology ----------------------------------------------------------
+  "atopic eczema management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "psoriasis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  # -- prevention and screening ---------------------------------------------
+  "adult vaccination recommendations NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "cancer screening recommendations adults NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "iron deficiency anaemia management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+  "allergic rhinitis management NOT (case reports[pt]) NOT (animals[mh] NOT humans[mh]) NOT (in vitro techniques[mh])",
+]
+
+[chunking]
+target_chars = 800
+min_chars = 120                          # Sections shorter than this are dropped and the count reported
+max_chars = 1600
+keep_short_sections = false
+
+[embedding]
+# Recorded in the index manifest so a later embedding step can be verified
+# against the corpus it was built from. NO embeddings are computed by this
+# command; the manifest it writes declares index_state='rebuild_required'.
+provider = "openai"
+model = "text-embedding-3-small"
+dimensions = 1536
+
+[ncbi]
+tool = "synapse"
+timeout_seconds = 20.0
+max_attempts = 4

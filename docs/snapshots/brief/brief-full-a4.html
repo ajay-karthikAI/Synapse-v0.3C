@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appointment brief 0123456789ab</title>
+<meta name="description" content="A one-page appointment preparation brief prepared with Synapse.">
+<meta name="generator" content="Synapse 0.1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<style>
+/* Self-contained: no font import, no webfont, no image, no script. An
+   exported brief must never reach the network when it is opened. The export
+   test greps for those tokens literally, so this comment avoids spelling them. */
+:root {
+  --ink: #111111;
+  --muted: #444444;
+  --rule: #cccccc;
+  --user-bg: #f4f1fb;
+  --user-edge: #6d28d9;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  color: var(--ink);
+  /* System stack: identical rendering intent without a downloaded font. */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 10pt;
+  line-height: 1.45;
+}
+.sheet { max-width: 190mm; margin: 0 auto; padding: 12mm 14mm; }
+
+header.brief-header { border-bottom: 2px solid var(--ink); padding-bottom: 6pt; margin-bottom: 10pt; }
+.brief-title { font-size: 15pt; font-weight: 700; margin: 0 0 2pt 0; letter-spacing: -0.01em; }
+.brief-meta { font-size: 8pt; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4pt 14pt; }
+.brief-meta span { white-space: nowrap; }
+
+section.brief-section { margin: 0 0 9pt 0; break-inside: avoid; }
+h2.section-title {
+  font-size: 8.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); margin: 0 0 3pt 0; padding-bottom: 2pt; border-bottom: 1px solid var(--rule);
+}
+p, li { margin: 0 0 3pt 0; overflow-wrap: anywhere; }
+
+/* Anything the user wrote or changed is visually distinct from evidence-backed
+   content: a tinted panel with a rule down the left edge, plus a text label.
+   The label is what survives photocopying in black and white. */
+.user-block {
+  background: var(--user-bg);
+  border-left: 3px solid var(--user-edge);
+  padding: 5pt 7pt;
+  margin: 0 0 4pt 0;
+}
+.user-tag {
+  display: inline-block; font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--user-edge); margin-bottom: 2pt;
+}
+
+.claim { margin: 0 0 4pt 0; }
+.claim-markers { font-weight: 700; }
+.claim-partial { font-size: 8pt; color: var(--muted); }
+.claim-edited { background: var(--user-bg); border-left: 3px solid var(--user-edge); padding: 4pt 7pt; }
+.claim-edited .original { font-size: 8pt; color: var(--muted); margin-top: 2pt; }
+
+ol.questions { margin: 0; padding-left: 14pt; }
+ol.questions li { margin-bottom: 3pt; }
+.q-own { font-size: 7.5pt; font-weight: 700; color: var(--user-edge); text-transform: uppercase; letter-spacing: 0.06em; }
+
+.source { margin: 0 0 4pt 0; font-size: 9pt; break-inside: avoid; }
+.source-title { font-weight: 600; }
+.source-meta { color: var(--muted); font-size: 8pt; }
+.source-labels { color: var(--muted); font-size: 8pt; font-style: italic; }
+
+footer.brief-footer { margin-top: 10pt; border-top: 2px solid var(--ink); padding-top: 5pt; }
+.disclaimer { font-size: 8.5pt; color: var(--ink); }
+.doc-id { font-size: 7.5pt; color: var(--muted); margin-top: 3pt; }
+
+@media print {
+  /* Both common paper sizes; the layout is sized for the shorter of the two. */
+  @page { size: A4; margin: 12mm; }
+  .sheet { padding: 0; max-width: none; }
+  /* Never break a section, a source or the disclaimer across pages. */
+  section.brief-section, .source, footer.brief-footer { break-inside: avoid; }
+  /* Keep backgrounds when the user prints in colour; the tint is how
+     user-authored content is distinguished. The text label carries it when
+     backgrounds are off. */
+  .user-block, .claim-edited { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  a { text-decoration: none; color: var(--ink); }
+  /* Print the URL after a link: a printed hyperlink is otherwise a dead end. */
+  a[href]::after { content: " (" attr(href) ")"; font-size: 7.5pt; color: var(--muted); }
+}
+</style>
+</head>
+<body>
+<main class="sheet">
+<header class="brief-header">
+  <h1 class="brief-title">Appointment brief</h1>
+  <div class="brief-meta"><span>Prepared 01 January 2026, 09:30 UTC</span><span>Synapse 0.1.0</span><span>Sources diabetes-previsit 0.1.0</span><span>Corpus ci-fixture-corpus-v1</span></div>
+</header>
+<section class="brief-section"><h2 class="section-title">What I want to talk about</h2><div class="user-block"><span class="user-tag">Written by you</span><div>My blood sugar readings have been higher in the mornings.</div></div></section><section class="brief-section"><h2 class="section-title">What the research says</h2><p>Your HbA1c test shows your average blood sugar over the past two to three months.</p></section><section class="brief-section"><h2 class="section-title">Details from published research</h2><p class="claim">HbA1c reflects average plasma glucose over 2-3 months. <span class="claim-markers">[1]</span></p><p class="claim">Regular review supports earlier detection of complications. <span class="claim-markers">[2]</span></p></section><section class="brief-section"><h2 class="section-title">Questions to ask</h2><ol class="questions"><li>What does my result mean for me specifically?</li><li>How often should this be rechecked?</li></ol></section><section class="brief-section"><h2 class="section-title">My notes</h2><div class="user-block"><span class="user-tag">Written by you</span><div>Started about three weeks ago. Worse after I changed my evening meal times.</div></div></section><section class="brief-section"><h2 class="section-title">What this does not cover</h2><ul><li>This is general information from published research, not advice about your own care.</li></ul></section><section class="brief-section"><h2 class="section-title">Sources</h2><div class="source"><span class="source-title">[1] [SYNTHETIC EXAMPLE — NOT A REAL PUBLICATION] What HbA1c measures and how it is interpreted at a routine review.</span><div class="source-meta">Example Standards Organisation (synthetic) · 1 March 2025</div><div class="source-labels">Clinical guideline · Not reviewed by a clinician</div><div class="source-meta"><a href="https://example.org/synthetic-source/0001">https://example.org/synthetic-source/0001</a></div></div><div class="source"><span class="source-title">[2] [SYNTHETIC EXAMPLE — NOT A REAL PUBLICATION] Lifestyle interventions in adults with type 2 diabetes: a synthetic overview.</span><div class="source-meta">Journal of Example Evidence (synthetic) · 12 November 2024</div><div class="source-labels">Systematic review · Not reviewed by a clinician</div><div class="source-meta"><a href="https://example.org/synthetic-source/0002">https://example.org/synthetic-source/0002</a></div></div></section>
+<footer class="brief-footer">
+  <p class="disclaimer">This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.</p>
+  <p class="doc-id">Document 0123456789ab · This sheet was prepared for a conversation with a clinician.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,197 @@
+# config/emergency_vocabulary.toml
+# ===========================================================================
+# Emergency symptom vocabulary for pre-retrieval escalation.
+#
+#                    ⛔  REVIEW STATUS: UNREVIEWED  ⛔
+#
+# THIS FILE WAS AUTHORED BY ENGINEERING. NO CLINICIAN HAS REVIEWED IT.
+#
+# It exists in this form so that a clinician CAN review it: one concept per
+# block, every surface form visible, a stated source for each, and an explicit
+# per-concept review status. The previous implementation was a flat 24-string
+# list inline in Generation/answer_generator.py, which no clinician could
+# meaningfully sign off on and which nobody could audit for coverage.
+#
+# Turning the list into a reviewable artifact is an ENGINEERING contribution.
+# It does not make the contents clinically correct, and it must not be
+# described as clinically validated. `reviewed_by` stays empty until a
+# qualified clinician signs, and synapse.safety refuses to report this
+# vocabulary as approved while it is.
+#
+# `source_note` records where a surface form came from — public patient-facing
+# symptom-awareness material (e.g. the FAST stroke campaign, standard
+# emergency-department presenting complaints). Those are lay-education sources,
+# NOT clinical guidelines, and citing one is not a claim of clinical authority.
+#
+# ---------------------------------------------------------------------------
+# Design rules a reviewer should check against
+#
+# 1. Recall over precision. A missed emergency can kill; a false escalation
+#    tells someone to speak to staff sooner than necessary. Patterns are
+#    therefore broad, and the negation rules that suppress them are narrow.
+# 2. Patient wording, not clinical wording. A patient writes "my face has
+#    dropped", not "facial droop". Both belong here; the clinical term alone
+#    does not.
+# 3. Every pattern is a set of word STEMS matched within a proximity window,
+#    not a fixed phrase. "coughing up blood" and "coughed blood" must both
+#    match without enumerating every conjugation.
+# ===========================================================================
+
+[meta]
+version = "0.1.0-unreviewed"        # Bump on any content change; the version is stamped into every detection result
+review_status = "unreviewed"        # One of: unreviewed | in_review | approved
+reviewed_by = ""                    # Pseudonymous reviewer id (rev_xxxxxxxx). EMPTY = nobody has signed. Enforced in code.
+reviewed_at = ""                    # ISO-8601 date of sign-off
+proximity_window = 6                # Max token distance between the stems of one pattern
+notes = "Engineering-authored draft. Requires clinical review before any user exposure."
+
+# ---------------------------------------------------------------------------
+# Cardiac
+# ---------------------------------------------------------------------------
+[[concept]]
+id = "cardiac_chest_pain"
+label = "Possible acute coronary syndrome"
+review_status = "unreviewed"
+source_note = "Lay heart-attack awareness material; common ED presenting complaint"
+patterns = [
+  ["chest", "pain"], ["chest", "tight"], ["chest", "pressure"], ["chest", "crush"],
+  ["chest", "heavy"], ["chest", "squeez"], ["heart", "attack"],
+  ["pain", "left", "arm"], ["pain", "jaw"], ["elephant", "chest"],
+]
+
+# ---------------------------------------------------------------------------
+# Neurological
+# ---------------------------------------------------------------------------
+[[concept]]
+id = "stroke"
+label = "Possible stroke"
+review_status = "unreviewed"
+source_note = "FAST / BE-FAST public stroke-awareness campaign wording"
+patterns = [
+  ["stroke"],
+  ["face", "droop"], ["face", "drop"], ["face", "fall"], ["face", "numb"],
+  ["speech", "slur"], ["slur", "word"], ["speech", "difficult"], ["speech", "trouble"],
+  ["cannot", "speak"], ["can't", "speak"], ["word", "wrong"],
+  ["arm", "weak"], ["arm", "numb"], ["side", "weak"], ["side", "numb"],
+  ["move", "arm"], ["move", "leg"], ["cant", "move"], ["couldnt", "move"],
+  ["one", "side", "body"], ["vision", "loss"], ["lost", "vision"],
+  ["sudden", "confus"], ["balance", "lost"],
+]
+
+[[concept]]
+id = "thunderclap_headache"
+label = "Sudden severe headache"
+review_status = "unreviewed"
+source_note = "Standard red-flag headache presentation"
+patterns = [
+  ["worst", "headache"], ["sudden", "headache"], ["severe", "headache"],
+  ["headache", "life"], ["thunderclap"],
+]
+
+[[concept]]
+id = "altered_consciousness"
+label = "Loss of or altered consciousness"
+review_status = "unreviewed"
+source_note = "Common ED presenting complaint"
+patterns = [
+  ["unconscious"], ["pass", "out"], ["passing", "out"], ["black", "out"],
+  ["faint"], ["unrespons"], ["cannot", "wake"], ["won't", "wake"], ["seizure"], ["fitting"],
+]
+
+# ---------------------------------------------------------------------------
+# Respiratory
+# ---------------------------------------------------------------------------
+[[concept]]
+id = "respiratory_distress"
+label = "Respiratory distress"
+review_status = "unreviewed"
+source_note = "Lay breathing-emergency wording; cyanosis included as a lay descriptor"
+patterns = [
+  ["cannot", "breath"], ["can't", "breathe"], ["cant", "breathe"],
+  ["struggl", "breath"], ["difficult", "breath"], ["trouble", "breath"],
+  ["short", "breath"], ["breathless"], ["gasp"], ["choking"], ["suffocat"],
+  ["lip", "blue"], ["lips", "purple"], ["turning", "blue"], ["skin", "blue"],
+]
+
+[[concept]]
+id = "haemoptysis"
+label = "Coughing blood"
+review_status = "unreviewed"
+source_note = "Lay wording; 'coughing up blood' is the common patient phrasing"
+patterns = [
+  ["cough", "blood"], ["cough", "up", "blood"], ["spit", "blood"], ["blood", "phlegm"],
+]
+
+# ---------------------------------------------------------------------------
+# Haemorrhage and trauma
+# ---------------------------------------------------------------------------
+[[concept]]
+id = "severe_bleeding"
+label = "Severe bleeding"
+review_status = "unreviewed"
+source_note = "Standard first-aid emergency wording"
+patterns = [
+  ["sever", "bleed"], ["heavy", "bleed"], ["bleed", "stop"], ["bleed", "lot"],
+  ["vomit", "blood"], ["blood", "vomit"], ["blood", "stool"], ["black", "stool"],
+  ["losing", "blood"],
+]
+
+# ---------------------------------------------------------------------------
+# Toxicological
+# ---------------------------------------------------------------------------
+[[concept]]
+id = "overdose"
+label = "Overdose or poisoning"
+review_status = "unreviewed"
+source_note = "Lay wording; patients describe quantity, rarely the word 'overdose'"
+patterns = [
+  ["overdose"], ["took", "too", "many"], ["took", "too", "much"],
+  ["taken", "too", "many"], ["taken", "too", "much"], ["too", "many", "tablet"],
+  ["too", "many", "pill"], ["double", "dose"], ["extra", "dose"],
+  ["swallow", "poison"], ["poison"],
+  ["swallow", "pill"], ["swallow", "tablet"], ["swallow", "medic"],
+  ["ate", "pill"], ["ate", "tablet"],
+]
+
+# ---------------------------------------------------------------------------
+# Mental health crisis
+# ---------------------------------------------------------------------------
+[[concept]]
+id = "self_harm_risk"
+label = "Risk of self-harm or suicide"
+review_status = "unreviewed"
+source_note = "Lay crisis wording. Deliberately broad: this concept is exempt from negation suppression (see synapse/safety/detector.py)."
+negation_exempt = true              # "I don't want to live" must NOT be read as a negated statement
+patterns = [
+  ["suicid"], ["kill", "myself"], ["end", "my", "life"], ["want", "die"],
+  ["harm", "myself"], ["hurt", "myself"],
+  # "don't want to live" tokenizes as ["dont","want","live"] — the stem "not"
+  # does not prefix-match "dont", so each contraction is listed explicitly.
+  # Found by held-out testing; missing it was the worst gap in the draft.
+  ["not", "want", "live"], ["dont", "want", "live"], ["no", "reason", "live"],
+  ["dont", "want", "here"], ["tired", "living"], ["cant", "go", "on"],
+  ["better", "off", "dead"], ["nothing", "live", "for"],
+]
+
+# ---------------------------------------------------------------------------
+# Systemic
+# ---------------------------------------------------------------------------
+[[concept]]
+id = "sepsis"
+label = "Possible sepsis"
+review_status = "unreviewed"
+source_note = "Lay sepsis-awareness campaign wording"
+patterns = [
+  ["sepsis"], ["septic"], ["mottled", "skin"], ["rash", "fade"],
+  ["fever", "confus"], ["shiver", "uncontroll"],
+]
+
+[[concept]]
+id = "anaphylaxis"
+label = "Possible anaphylaxis"
+review_status = "unreviewed"
+source_note = "Lay allergy-emergency wording"
+patterns = [
+  ["anaphyla"], ["throat", "clos"], ["throat", "swell"], ["tongue", "swell"],
+  ["allergic", "reaction"], ["face", "swell"],
+]

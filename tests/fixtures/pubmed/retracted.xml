@@ -1,0 +1,86 @@
+<?xml version="1.0" ?>
+<!-- Fixture: the two SIDES of a retraction, which must not be confused.
+     40000010 HAS BEEN RETRACTED  — RefType="RetractionIn" + "Retracted Publication".
+     40000011 IS THE NOTICE       — RefType="RetractionOf" + "Retraction of Publication";
+                                    it is valid evidence and must NOT be excluded.
+     40000012 is under an expression of concern — RefType="ExpressionOfConcernIn". -->
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000010</PMID>
+      <Article PubModel="Print">
+        <Journal><JournalIssue><PubDate><Year>2018</Year><Month>Apr</Month></PubDate></JournalIssue><Title>Journal of Questionable Findings</Title></Journal>
+        <ArticleTitle>A dramatic effect of compound X on recovery time.</ArticleTitle>
+        <Abstract>
+          <AbstractText Label="RESULTS" NlmCategory="RESULTS">Compound X reduced recovery time by seventy percent across every subgroup examined in this multi-site investigation of hospitalised adults.</AbstractText>
+          <AbstractText Label="CONCLUSIONS" NlmCategory="CONCLUSIONS">These findings suggest compound X substantially accelerates recovery and warrants immediate adoption into routine clinical practice worldwide.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y"><Author ValidYN="Y"><LastName>Fabricant</LastName><ForeName>Q</ForeName><Initials>Q</Initials></Author></AuthorList>
+        <Language>eng</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+          <PublicationType UI="D016441">Retracted Publication</PublicationType>
+        </PublicationTypeList>
+      </Article>
+      <CommentsCorrectionsList>
+        <CommentsCorrections RefType="RetractionIn">
+          <RefSource>J Questionable Findings. 2020 Feb;12(2):100</RefSource>
+          <PMID Version="1">40000011</PMID>
+        </CommentsCorrections>
+      </CommentsCorrectionsList>
+    </MedlineCitation>
+    <PubmedData><PublicationStatus>ppublish</PublicationStatus>
+      <ArticleIdList><ArticleId IdType="pubmed">40000010</ArticleId></ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000011</PMID>
+      <Article PubModel="Print">
+        <Journal><JournalIssue><PubDate><Year>2020</Year><Month>Feb</Month></PubDate></JournalIssue><Title>Journal of Questionable Findings</Title></Journal>
+        <ArticleTitle>Retraction: A dramatic effect of compound X on recovery time.</ArticleTitle>
+        <Abstract>
+          <AbstractText>The editors retract this article following an institutional investigation that identified irreconcilable discrepancies in the reported primary outcome data across the participating sites.</AbstractText>
+        </Abstract>
+        <Language>eng</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D016440">Retraction of Publication</PublicationType>
+        </PublicationTypeList>
+      </Article>
+      <CommentsCorrectionsList>
+        <CommentsCorrections RefType="RetractionOf">
+          <RefSource>J Questionable Findings. 2018 Apr;10(4):55-61</RefSource>
+          <PMID Version="1">40000010</PMID>
+        </CommentsCorrections>
+      </CommentsCorrectionsList>
+    </MedlineCitation>
+    <PubmedData><PublicationStatus>ppublish</PublicationStatus>
+      <ArticleIdList><ArticleId IdType="pubmed">40000011</ArticleId></ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000012</PMID>
+      <Article PubModel="Print">
+        <Journal><JournalIssue><PubDate><Year>2021</Year></PubDate></JournalIssue><Title>Journal of Contested Results</Title></Journal>
+        <ArticleTitle>Long-term outcomes following an experimental intervention.</ArticleTitle>
+        <Abstract>
+          <AbstractText Label="CONCLUSIONS" NlmCategory="CONCLUSIONS">Long-term outcomes appeared favourable across the full follow-up period in this single-centre cohort of consecutively enrolled adult participants.</AbstractText>
+        </Abstract>
+        <Language>eng</Language>
+        <PublicationTypeList><PublicationType UI="D016428">Journal Article</PublicationType></PublicationTypeList>
+      </Article>
+      <CommentsCorrectionsList>
+        <CommentsCorrections RefType="ExpressionOfConcernIn">
+          <RefSource>J Contested Results. 2023 Jun;15(6):400</RefSource>
+          <PMID Version="1">40000013</PMID>
+        </CommentsCorrections>
+      </CommentsCorrectionsList>
+    </MedlineCitation>
+    <PubmedData><PublicationStatus>ppublish</PublicationStatus>
+      <ArticleIdList><ArticleId IdType="pubmed">40000012</ArticleId></ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

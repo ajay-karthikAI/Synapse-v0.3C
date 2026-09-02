@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<!-- Fixture: a CORRECTED article (ErratumIn). A correction does not discredit
+     the article, so it must remain in the corpus with retraction_status
+     'corrected' and the notice preserved in related_notices. -->
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000020</PMID>
+      <Article PubModel="Print-Electronic">
+        <Journal><JournalIssue><PubDate><Year>2023</Year><Month>Sep</Month><Day>04</Day></PubDate></JournalIssue><Title>Diabetes Care</Title></Journal>
+        <ArticleTitle>Glycaemic targets in older adults with type 2 diabetes.</ArticleTitle>
+        <ELocationID EIdType="doi" ValidYN="Y">10.2337/dc23-0001</ELocationID>
+        <Abstract>
+          <AbstractText Label="OBJECTIVE" NlmCategory="OBJECTIVE">To evaluate whether relaxed glycaemic targets are associated with different outcomes among adults older than seventy-five years of age.</AbstractText>
+          <AbstractText Label="CONCLUSIONS" NlmCategory="CONCLUSIONS">Relaxed targets were not associated with worse outcomes in this population, supporting individualised target setting in older adults with multiple comorbidities.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y"><Author ValidYN="Y"><LastName>Nakamura</LastName><ForeName>Hiro</ForeName><Initials>H</Initials></Author></AuthorList>
+        <Language>eng</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+          <PublicationType UI="D017418">Meta-Analysis</PublicationType>
+          <PublicationType UI="D000078182">Systematic Review</PublicationType>
+        </PublicationTypeList>
+        <ArticleDate DateType="Electronic"><Year>2023</Year><Month>08</Month><Day>15</Day></ArticleDate>
+      </Article>
+      <CommentsCorrectionsList>
+        <CommentsCorrections RefType="ErratumIn">
+          <RefSource>Diabetes Care. 2023 Dec;46(12):2250</RefSource>
+          <PMID Version="1">40000021</PMID>
+        </CommentsCorrections>
+      </CommentsCorrectionsList>
+    </MedlineCitation>
+    <PubmedData><PublicationStatus>ppublish</PublicationStatus>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">40000020</ArticleId>
+        <ArticleId IdType="doi">10.2337/dc23-0001</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

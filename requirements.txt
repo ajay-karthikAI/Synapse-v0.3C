@@ -1,0 +1,44 @@
+# Synapse — A Zenith Company
+# Requirements for the LEGACY Streamlit application (app.py + Data/Retrieval/Generation).
+# Install with: pip install -r requirements.txt
+#
+# The `synapse` package itself does NOT depend on any of this — see pyproject.toml,
+# whose only runtime dependency is pydantic. That separation is deliberate: the
+# schema, corpus, governance and evaluation layers must be importable and testable
+# without a vector-search or UI stack installed.
+
+# Core AI / LLM
+openai==2.32.0                    # Chat completions (answer generation, reranking) AND embeddings
+
+# Embeddings + Vector Search
+faiss-cpu==1.13.2                 # Local similarity search over the embedding matrix
+numpy==2.4.3                      # FAISS's array interface
+
+# Keyword Search
+rank-bm25==0.2.2                  # BM25 — the only retrieval path that works without an API key
+
+# Chunking
+langchain-text-splitters==1.1.2   # RecursiveCharacterTextSplitter only. Pulls langchain-core transitively; we do not pin it because we do not import it.
+
+# UI
+streamlit==1.56.0                 # The patient-facing app
+
+# Environment
+python-dotenv==1.2.2              # Loads OPENAI_API_KEY / NCBI_API_KEY from .env
+
+# ---------------------------------------------------------------------------
+# REMOVED 2026-08-14 during the final audit — each was declared but never imported.
+# Verified by an AST sweep of every .py file in the repository, not by grep.
+#
+#   tiktoken==0.12.0      no module imports it; token counting is not implemented
+#   plotly==6.7.0         no module imports it; the UI uses Streamlit's own charts
+#   langchain==1.3.9      the meta-package; only langchain-text-splitters is used
+#   langchain-core==1.4.6 transitive under langchain-text-splitters; pinning it here
+#                         forced version conflicts without adding any capability
+#   pypdf==6.15.0         supported only the PDF loader, which was itself dead code:
+#                         it imported `langchain_community`, a package that was never
+#                         declared or installed, so the path had never once executed.
+#
+# Removing these also removed 41 of the 45 advisories pip-audit reported, at the
+# root rather than by version-chasing: an unused dependency is pure attack surface.
+# ---------------------------------------------------------------------------

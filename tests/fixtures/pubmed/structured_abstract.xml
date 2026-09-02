@@ -1,0 +1,52 @@
+<?xml version="1.0" ?>
+<!-- Fixture: a four-section structured abstract with an electronic date ahead
+     of the print issue date, a DOI in both ELocationID and ArticleIdList, and
+     a nested <i> tag inside CONCLUSIONS. Exercises the central defect: the
+     legacy parser kept only BACKGROUND. -->
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000001</PMID>
+      <Article PubModel="Print-Electronic">
+        <Journal>
+          <ISSN IssnType="Electronic">1533-4406</ISSN>
+          <JournalIssue CitedMedium="Internet">
+            <Volume>390</Volume>
+            <Issue>12</Issue>
+            <PubDate><Year>2024</Year><Month>Mar</Month><Day>21</Day></PubDate>
+          </JournalIssue>
+          <Title>The New England Journal of Medicine</Title>
+        </Journal>
+        <ArticleTitle>Intensive versus standard blood-pressure control in adults.</ArticleTitle>
+        <Pagination><MedlinePgn>1091-1103</MedlinePgn></Pagination>
+        <ELocationID EIdType="doi" ValidYN="Y">10.1056/NEJMoa1234567</ELocationID>
+        <Abstract>
+          <AbstractText Label="BACKGROUND" NlmCategory="BACKGROUND">Elevated systolic blood pressure remains a leading modifiable contributor to cardiovascular disease worldwide. The optimal target for treatment has been debated for two decades.</AbstractText>
+          <AbstractText Label="METHODS" NlmCategory="METHODS">We randomly assigned 9361 participants with elevated systolic blood pressure to a target of less than 120 mm Hg or less than 140 mm Hg. Participants were followed for a median of 3.26 years. The primary outcome was a composite of myocardial infarction, stroke, and death from cardiovascular causes.</AbstractText>
+          <AbstractText Label="RESULTS" NlmCategory="RESULTS">The primary outcome occurred in 243 participants in the intensive-treatment group and 319 in the standard-treatment group. Serious adverse events of hypotension occurred more frequently in the intensive-treatment group.</AbstractText>
+          <AbstractText Label="CONCLUSIONS" NlmCategory="CONCLUSIONS">Targeting a systolic pressure below 120 mm Hg reduced rates of major cardiovascular events, although rates of some adverse events were higher. See <i>Supplementary Appendix</i> for full outcome definitions.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y"><LastName>Wright</LastName><ForeName>Jackson T</ForeName><Initials>JT</Initials></Author>
+          <Author ValidYN="Y"><LastName>Williamson</LastName><ForeName>Jeff D</ForeName><Initials>JD</Initials></Author>
+          <Author ValidYN="Y"><CollectiveName>The SPRINT Research Group</CollectiveName></Author>
+        </AuthorList>
+        <Language>eng</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+          <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+          <PublicationType UI="D013485">Research Support, N.I.H., Extramural</PublicationType>
+        </PublicationTypeList>
+        <ArticleDate DateType="Electronic"><Year>2023</Year><Month>11</Month><Day>09</Day></ArticleDate>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <PublicationStatus>ppublish</PublicationStatus>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">40000001</ArticleId>
+        <ArticleId IdType="doi">10.1056/NEJMoa1234567</ArticleId>
+        <ArticleId IdType="pmc">PMC9876543</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

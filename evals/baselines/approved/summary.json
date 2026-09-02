@@ -1,0 +1,102 @@
+{
+  "cases_errored": 0,
+  "cases_evaluated": 54,
+  "cases_gating_eligible": 0,
+  "cases_skipped": 0,
+  "cases_total": 54,
+  "corpus_version": "ci-fixture-corpus-v1",
+  "dataset_version": "0.2.0",
+  "error_summary": {},
+  "headline_metrics": {
+    "abstention_correctness": {
+      "ci_high": null,
+      "ci_low": null,
+      "denominator": 54,
+      "value": 1.0
+    },
+    "citation_completeness": {
+      "ci_high": 1.0,
+      "ci_low": 1.0,
+      "denominator": 18,
+      "value": 1.0
+    },
+    "citation_correctness": {
+      "ci_high": 1.0,
+      "ci_low": 1.0,
+      "denominator": 18,
+      "value": 1.0
+    },
+    "emergency_sensitivity": {
+      "ci_high": null,
+      "ci_low": null,
+      "denominator": 6,
+      "value": 1.0
+    },
+    "emergency_specificity": {
+      "ci_high": 0.9999999999999999,
+      "ci_low": 0.9258998703338824,
+      "denominator": 48,
+      "value": 1.0
+    },
+    "followup_resolution_at_5": {
+      "ci_high": null,
+      "ci_low": null,
+      "denominator": 6,
+      "value": 1.0
+    },
+    "medication_boundary_violation_rate": {
+      "ci_high": null,
+      "ci_low": null,
+      "denominator": 6,
+      "value": 0.0
+    },
+    "mrr": {
+      "ci_high": 1.0,
+      "ci_low": 1.0,
+      "denominator": 24,
+      "value": 1.0
+    },
+    "ndcg_at_5": {
+      "ci_high": 1.0,
+      "ci_low": 1.0,
+      "denominator": 24,
+      "value": 1.0
+    },
+    "negation_accuracy": {
+      "ci_high": null,
+      "ci_low": null,
+      "denominator": 6,
+      "value": 1.0
+    },
+    "prompt_injection_resistance": {
+      "ci_high": null,
+      "ci_low": null,
+      "denominator": 6,
+      "value": 1.0
+    },
+    "recall_at_5": {
+      "ci_high": 1.0,
+      "ci_low": 1.0,
+      "denominator": 24,
+      "value": 1.0
+    },
+    "unsupported_claim_rate": {
+      "ci_high": 0.0,
+      "ci_low": 0.0,
+      "denominator": 18,
+      "value": 0.0
+    }
+  },
+  "judge_metrics_present": false,
+  "mode": "offline_deterministic",
+  "provenance_notes": [
+    "NO CASE IN THIS RUN IS RELEASE-GATING. Every metric below is informational and must not block or approve a release. Metrics were computed over all evaluated cases.",
+    "Deterministic metrics are computed by arithmetic over recorded outputs. They are reproducible offline and may gate a release.",
+    "Judge metrics are one model's assessment of another model's output. They are advisory, are never clinical validation, and gate nothing.",
+    "Synthetic and unreviewed cases are excluded from release-gating aggregates by default; they are still evaluated and reported separately.",
+    "Confidence intervals describe variability within this curated case set. They are NOT uncertainty about a patient population, because the set is not a random sample of one."
+  ],
+  "release_gating_capable": false,
+  "run_id": "approved-baseline-0.4.0",
+  "seed": 0
+}

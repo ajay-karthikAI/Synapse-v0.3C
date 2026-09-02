@@ -1,0 +1,19 @@
+Your HbA1c test shows your average blood sugar over the past two to three months.
+
+- HbA1c reflects average plasma glucose over 2-3 months. [1]
+- Regular review supports earlier detection of complications. [2]
+
+What your doctor will evaluate: Your clinician will look at this result alongside your history and current treatment.
+
+Questions to ask your doctor:
+  - What does my result mean for me specifically?
+  - How often should this be rechecked?
+
+Limitations:
+  - This is general information from published research, not advice about your own care.
+
+Sources:
+  [1] HbA1c Targets in Adults (pubmed:41802233)
+  [2] Routine Diabetes Review (pubmed:41900001)
+
+This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.

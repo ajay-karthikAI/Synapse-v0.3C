@@ -1,0 +1,31 @@
+{
+ "case_id": "dpv-0026",
+ "split": "unassigned",
+ "query": "why is that checked at every appointment?",
+ "context": [
+  "what is hba1c"
+ ],
+ "category": "followup_resolution",
+ "expected_behavior": "answer",
+ "relevant_documents": [],
+ "relevant_chunks": [],
+ "required_concepts": [
+  "explains why the measure is monitored over time"
+ ],
+ "forbidden_claims": [
+  "states a target as the patient's own"
+ ],
+ "citation_requirements": {
+  "min_citations": 1,
+  "must_cite_documents": [],
+  "must_not_cite_documents": [],
+  "require_verbatim_excerpt": true
+ },
+ "annotation_status": "pending_review",
+ "is_synthetic": false,
+ "privacy_class": "synthetic",
+ "redaction_status": "not_required",
+ "author_note": "Engineering-authored draft for clinical review. Not a clinical judgement.",
+ "notes": "Demonstrative reference across one turn.",
+ "known_limitations": "DRAFT, UNREVIEWED. Authored by engineering as a starting point for clinical review, not by a clinician. The expected behaviour, required concepts and forbidden claims below are PROPOSALS to be accepted or rejected. relevant_documents is deliberately empty: relevance labels are pinned to a corpus version and no approved corpus exists yet."
+}

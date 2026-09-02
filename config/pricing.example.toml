@@ -1,0 +1,28 @@
+# config/pricing.example.toml
+# ===========================================================================
+# Model pricing for evaluation cost estimation.
+#
+# THIS IS A TEMPLATE. Every price is 0.0, so a run against it reports 0.00 and
+# emits a warning. That is deliberate: an obvious zero with a warning is safer
+# than a plausible-looking figure nobody can source.
+#
+# To use it: copy to config/pricing.toml, fill in the prices from your
+# provider's current pricing page, and bump `version` and `effective_date`.
+# No price is hard-coded anywhere in Synapse — a constant compiled into source
+# produces a cost report that is confidently wrong the moment prices change.
+# ===========================================================================
+
+[pricing]
+version = "unconfigured-0"           # Bump whenever a price changes; stamped into every run
+effective_date = "2026-01-01"        # Date these prices were verified; runs flag a table older than 90 days
+currency = "USD"
+source_note = "TEMPLATE — no prices configured. Populate from your provider's pricing page."
+
+# Prices are per MILLION tokens, matching how providers quote them.
+[models."gpt-4o-mini"]
+input_per_million_tokens = 0.0       # UNCONFIGURED
+output_per_million_tokens = 0.0      # UNCONFIGURED
+
+[models."text-embedding-3-small"]
+input_per_million_tokens = 0.0       # UNCONFIGURED
+output_per_million_tokens = 0.0      # Embeddings produce no output tokens

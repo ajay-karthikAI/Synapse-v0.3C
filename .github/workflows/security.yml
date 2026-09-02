@@ -1,0 +1,118 @@
+# .github/workflows/security.yml
+# ===========================================================================
+# Dependency vulnerability scanning and secret scanning.
+#
+# Split from ci.yml because these jobs have different needs: the dependency
+# review action requires `pull-requests: read` and the scheduled audit runs
+# without a pull request at all. Keeping them separate means ci.yml can stay
+# strictly read-only.
+#
+# Still no secrets, and still no application API calls. `pip-audit` queries a
+# vulnerability database, which is an infrastructure call rather than an
+# application one — the distinction is stated in docs/release-quality-gates.md.
+# ===========================================================================
+
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so a vulnerability disclosed after a merge is still found. A
+    # dependency that was clean on Monday is not clean forever.
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  dependency-audit:
+    name: Dependency vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: pip-audit
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266  # v1.1.0
+        with:
+          inputs: .
+          # Findings fail the job. A vulnerability with no fix available should
+          # be handled with an explicit, reviewed `--ignore-vuln` entry rather
+          # than by making the whole gate advisory.
+          require-hashes: false
+
+  dependency-review:
+    name: Dependency review (PR only)
+    runs-on: ubuntu-latest
+    # Only meaningful on a pull request: it diffs the dependency manifest
+    # against the base branch.
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read   # Narrowest scope that lets the action read the diff
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never   # No write permission is granted, so a comment attempt would fail
+
+  secret-scan:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0   # Full history: a secret committed and later removed is still in the history
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e  # v3.0.0
+        env:
+          # NOTE: GITLEAKS_LICENSE is required by this action for ORGANISATION
+          # accounts. It is deliberately NOT wired to a secret here, because
+          # this workflow runs on pull requests including from forks, and a
+          # fork PR must never receive a secret. For an org repo, either:
+          #   (a) move this job to a workflow that runs only on push to main,
+          #       where secrets are safe to expose, or
+          #   (b) use GitHub's built-in secret scanning (Settings > Code
+          #       security), which needs no workflow at all.
+          # See docs/release-quality-gates.md.
+          GITHUB_TOKEN: ${{ github.token }}   # Read-only, automatically scoped; not a user secret
+
+  filesystem-secret-check:
+    name: No credentials committed
+    runs-on: ubuntu-latest
+    # A cheap belt-and-braces check that runs with no third-party action and no
+    # token at all, so it works on a fork PR regardless of gitleaks licensing.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Assert no .env or key material is tracked
+        run: |
+          set -euo pipefail
+          bad=0
+          # .env holds a real OpenAI key in local development and is gitignored;
+          # this asserts the ignore is actually working.
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error file=.env::.env is tracked; it must stay gitignored"
+            bad=1
+          fi
+          while IFS= read -r f; do
+            echo "::error file=$f::key material must not be committed"
+            bad=1
+          done < <(git ls-files '*.pem' '*.key' '*.p12' '*.pfx' 'id_rsa*')
+          # Provider key prefixes in tracked files. Excludes this workflow and
+          # the docs, which necessarily mention the patterns.
+          if git grep -nIE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36})' \
+               -- ':!.github/workflows/*' ':!docs/*' ':!CONTRIBUTING.md' >/dev/null 2>&1; then
+            echo "::error::a provider API key pattern appears in a tracked file"
+            git grep -nIE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36})' \
+              -- ':!.github/workflows/*' ':!docs/*' ':!CONTRIBUTING.md' || true
+            bad=1
+          fi
+          [ "$bad" -eq 0 ] && echo "No committed credentials found."
+          exit "$bad"

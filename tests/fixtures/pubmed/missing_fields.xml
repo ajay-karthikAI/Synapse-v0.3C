@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<!-- Fixture: three degenerate records.
+     40000003 has no abstract at all and a free-text MedlineDate.
+     40000004 has no PMID, so it cannot be identified or cited.
+     40000005 has no Article element. All must be handled without raising. -->
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="PubMed-not-MEDLINE" Owner="NLM">
+      <PMID Version="1">40000003</PMID>
+      <Article PubModel="Print">
+        <Journal>
+          <JournalIssue CitedMedium="Print">
+            <PubDate><MedlineDate>2019 Jan-Feb</MedlineDate></PubDate>
+          </JournalIssue>
+          <Title>Minor Journal of Brief Notes</Title>
+        </Journal>
+        <ArticleTitle>A brief communication without an abstract.</ArticleTitle>
+      </Article>
+    </MedlineCitation>
+    <PubmedData><PublicationStatus>ppublish</PublicationStatus></PubmedData>
+  </PubmedArticle>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <Article PubModel="Print">
+        <ArticleTitle>A record with no PMID.</ArticleTitle>
+        <Abstract><AbstractText>This record cannot be identified or cited, so it must be skipped.</AbstractText></Abstract>
+      </Article>
+    </MedlineCitation>
+  </PubmedArticle>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000005</PMID>
+    </MedlineCitation>
+  </PubmedArticle>
+</PubmedArticleSet>

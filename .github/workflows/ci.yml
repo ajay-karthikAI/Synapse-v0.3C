@@ -1,0 +1,263 @@
+# .github/workflows/ci.yml
+# ===========================================================================
+# Pull-request and push gate. Everything here is OFFLINE and SECRETLESS.
+#
+# Two properties this workflow is built around:
+#
+#   * NO SECRETS. `permissions` is read-only and no `secrets` are referenced.
+#     A PR from a fork therefore cannot exfiltrate anything, and a compromised
+#     dependency cannot reach a token that does not exist in the environment.
+#   * NO EXTERNAL API CALLS. Tests deselect anything marked `live`, the
+#     evaluation runs from committed fixtures, and a guard step fails the job
+#     if an API key is present in the environment at all.
+#
+# Action versions are pinned by COMMIT SHA, not tag. A tag is mutable — an
+# attacker who compromises an action repository can repoint v4 at malicious
+# code, and every workflow pinned to the tag picks it up silently.
+# ===========================================================================
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only by default. Individual jobs widen this only where they must.
+permissions:
+  contents: read
+
+concurrency:
+  # Supersede an in-flight run when new commits land, so a stale red does not
+  # sit on a branch that has already been fixed.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"          # Matches requires-python and the devcontainer
+  FORCE_COLOR: "1"
+
+jobs:
+  # -------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          # Cache key is derived from the dependency declaration, so a changed
+          # pin produces a new cache rather than restoring a stale environment.
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: ruff check
+        run: ruff check .
+
+  # -------------------------------------------------------------------------
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: ruff format --check
+        # Scoped to code. Markdown docs contain python fences that ruff would
+        # also reformat, which is not what this gate is for.
+        run: ruff format --check synapse tests
+
+  # -------------------------------------------------------------------------
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: mypy
+        # Scoped to the layers that are fully annotated. Widening the scope is a
+        # deliberate act, not something that happens by a file being added.
+        run: mypy synapse/schemas synapse/evals synapse/answer synapse/corpus synapse/index synapse/ui synapse/retrieval synapse/bench synapse/telemetry synapse/evidence synapse/brief synapse/a11y
+
+  # -------------------------------------------------------------------------
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Assert no API credentials are present
+        # Requirement 6, enforced rather than assumed. If a key is ever exposed
+        # to this workflow the job fails instead of quietly spending money.
+        run: |
+          for var in OPENAI_API_KEY NCBI_API_KEY ANTHROPIC_API_KEY; do
+            if [ -n "${!var:-}" ]; then
+              echo "::error::$var is set in a workflow that must make no external calls"
+              exit 1
+            fi
+          done
+          echo "No API credentials present."
+      - name: pytest
+        # `-m "not live"` is the project default in pyproject.toml; repeated
+        # here so the intent is visible at the call site.
+        run: pytest -m "not live" --cov=synapse --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 14
+
+  # -------------------------------------------------------------------------
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Migration, ingestion, governance and harness integration
+        # These exercise whole pipelines against committed fixtures: the
+        # restricted pickle reader, the PubMed XML parser, source-pack
+        # workflows, the evaluation harness end to end, and the production
+        # answer path (retrieval and generation injected, so it stays offline).
+        run: |
+          pytest -m "not live" \
+            tests/test_migration.py \
+            tests/test_ingest_client_and_pipeline.py \
+            tests/test_governance_workflows.py \
+            tests/test_evals_harness.py \
+            tests/test_evalset_workflows.py \
+            tests/test_answer_snapshots.py \
+            tests/test_ui_pipeline.py \
+            tests/test_retrieval_pipeline.py \
+            tests/test_retrieval_benchmark.py \
+            tests/test_telemetry_privacy.py \
+            tests/test_telemetry_metrics.py \
+            tests/test_evidence_ux.py \
+            tests/test_evidence_snapshots.py \
+            tests/test_appointment_brief.py \
+            tests/test_brief_print_snapshots.py \
+            tests/test_accessibility.py
+
+  # -------------------------------------------------------------------------
+  artifact-validation:
+    name: Artifact and schema validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Validate the example source pack
+        # Digest mismatch, expired approval, unreviewed-approval claims: all
+        # blocking. Exit code is non-zero on any error-severity finding.
+        run: python -m synapse.cli.source_pack validate --pack source_packs/diabetes-previsit
+      - name: Validate the CI evaluation dataset
+        run: python -m synapse.cli.evalset validate --dataset evals/ci
+      - name: Assert no case in the CI dataset can gate a release
+        # The CI dataset is synthetic and unreviewed. This asserts the gating
+        # layer still refuses it, so the "0 gating-eligible" caveat in every
+        # report stays true rather than drifting.
+        run: |
+          python -m synapse.cli.evalset gating --dataset evals/ci --json > gating.json
+          python - <<'PY'
+          import json, sys
+          data = json.load(open("gating.json"))
+          if data["eligible_count"] != 0:
+              sys.exit(f"expected 0 gating-eligible cases in the synthetic CI dataset, got {data['eligible_count']}")
+          print("Confirmed: 0 gating-eligible cases. Reports must not claim clinical validation.")
+          PY
+      - name: Schema and manifest round-trip checks
+        run: pytest -m "not live" tests/test_manifest_and_integrity.py tests/test_schema_validation.py tests/test_jsonl_roundtrip.py
+
+  # -------------------------------------------------------------------------
+  offline-evaluation:
+    name: Offline evaluation and quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Run the offline evaluation
+        # --offline replays committed system responses. No model is called, no
+        # network is touched, and the run reproduces byte-for-byte.
+        run: |
+          python -m synapse.evals.run \
+            --dataset evals/ci \
+            --fixture evals/ci/system_responses.jsonl \
+            --corpus evals/ci \
+            --output artifacts/evals/candidate \
+            --run-id "ci-${{ github.run_id }}" \
+            --offline
+      - name: Check quality gates against the approved baseline
+        # Writes the Markdown summary into the job summary and the machine
+        # readable report alongside the artifacts. Non-zero exit fails the job.
+        run: |
+          python -m synapse.cli.check_gates \
+            --results artifacts/evals/candidate/results.json \
+            --baseline evals/baselines/approved/results.json \
+            --config configs/quality-gates.toml \
+            --summary-out "$GITHUB_STEP_SUMMARY" \
+            --json-out artifacts/evals/candidate/gate_report.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: always()   # Uploaded even when the gates fail — that is when they are most needed
+        with:
+          name: evaluation-reports
+          path: |
+            artifacts/evals/candidate/results.json
+            artifacts/evals/candidate/summary.json
+            artifacts/evals/candidate/report.md
+            artifacts/evals/candidate/per_case.jsonl
+            artifacts/evals/candidate/gate_report.json
+          retention-days: 30
+
+  # -------------------------------------------------------------------------
+  ci-passed:
+    # Single required status check for branch protection. Adding a job above
+    # does not require a branch-protection change; it just has to be listed here.
+    name: CI passed
+    runs-on: ubuntu-latest
+    needs: [lint, format, typecheck, unit-tests, integration-tests, artifact-validation, offline-evaluation]
+    if: always()
+    steps:
+      - name: Verify every required job succeeded
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::One or more required CI jobs did not succeed."
+            exit 1
+          fi
+          echo "All required CI jobs succeeded."

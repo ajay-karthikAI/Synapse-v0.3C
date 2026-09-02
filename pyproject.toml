@@ -1,0 +1,166 @@
+# pyproject.toml
+# =========================================================================
+# Packaging + tooling configuration for Synapse.
+#
+# Why this file exists at all: the repository previously had no packaging
+# metadata, so every module faked a package root by mutating sys.path at
+# import time. That is what allowed the case-sensitivity import bugs
+# (`evaluation.evaluator` vs `Evaluation/Evaluator.py`) to survive — imports
+# resolved differently depending on which file was the entry point.
+# Declaring one installable package makes exactly one import root canonical.
+# =========================================================================
+
+[build-system]                                          # Tells pip/uv how to build this project
+requires = ["setuptools>=83", "wheel"]                  # Build-time-only. Floor raised from 68 to clear PYSEC-2026-3447 (fixed in 83.0.0), found by pip-audit.
+build-backend = "setuptools.build_meta"                 # Standard PEP 517 backend; no custom build logic anywhere
+
+# -------------------------------------------------------------------------
+# Project metadata
+# -------------------------------------------------------------------------
+
+[project]
+name = "synapse"                                        # Distribution name; matches the import package so `pip install -e .` gives `import synapse`
+version = "0.1.0"                                       # Foundational data/artifact layer only — no retrieval or evaluation logic yet
+description = "Patient-facing medical appointment-preparation RAG — data and artifact integrity layer"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"                        # Floor is 3.11 (per docs/quality-architecture.md); ceiling keeps the pinned wheel set resolvable
+license = { text = "MIT" }                              # Matches the licence already declared in README.md
+authors = [{ name = "Ajay Karthikeyan" }]               # Taken from the existing README; no new identities invented
+keywords = ["rag", "medical", "retrieval", "evaluation", "provenance"]
+
+classifiers = [                                         # Standard PyPI trove classifiers; harmless locally, required if this is ever published
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Intended Audience :: Healthcare Industry",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [                                        # RUNTIME dependencies of the synapse package only — deliberately tiny
+  "pydantic>=2.7,<3",                                   # The one hard dependency: validation of untrusted artifacts at every I/O boundary
+]
+
+# NOTE: faiss-cpu, numpy, openai, streamlit etc. remain declared in
+# requirements.txt for the existing application. They are intentionally NOT
+# runtime dependencies of `synapse` — the schema, corpus and manifest layers
+# must be importable (and testable) without a vector-search stack installed.
+
+[project.optional-dependencies]
+dev = [                                                 # Development-only tooling; installed with `pip install -e ".[dev]"`
+  "pytest>=8.0",                                        # Test runner
+  "pytest-cov>=5.0",                                    # Coverage measurement for the new package
+  "ruff>=0.6",                                          # Linter + formatter (replaces flake8/isort/black in one tool)
+  "mypy>=1.11",                                         # Static type checking; scoped in CI to the fully-annotated layers
+  "pip-audit>=2.7",                                     # Dependency vulnerability scanning, runnable locally as well as in CI
+]
+a11y = [                                                # Browser-based accessibility checks; the offline checks need none of this
+  "playwright>=1.40",                                   # Drives the installed Chrome channel, so no browser download is required
+  "axe-core-python>=0.1",                               # Bundles axe-core itself, so no CDN is contacted at test time
+]
+index = [                                               # Optional extra: only needed to hash/verify a real FAISS index
+  "faiss-cpu>=1.8",                                     # Imported lazily so the core package stays install-light
+  "numpy>=1.26",                                        # FAISS's array dependency
+]
+
+[project.scripts]                                       # Console entry points created on install
+synapse-migrate-artifacts = "synapse.cli.migrate_artifacts:main"   # Convenience alias for `python -m synapse.cli.migrate_artifacts`
+
+# -------------------------------------------------------------------------
+# Package discovery
+# -------------------------------------------------------------------------
+
+[tool.setuptools.packages.find]
+include = ["synapse*"]                                  # ONLY ship the new package — the legacy Data/Retrieval/Generation/Evaluation trees are untouched and unpackaged
+namespaces = false                                      # Require a real __init__.py in every package; prevents accidental namespace-package resolution
+
+# -------------------------------------------------------------------------
+# Ruff — lint + format
+# -------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py311"                                # Lets ruff apply 3.11-appropriate rewrites (e.g. `X | None` over Optional[X])
+line-length = 100                                       # Slightly wider than default 88 to accommodate the explanatory trailing comments used throughout
+extend-exclude = [                                      # Legacy application code is excluded, NOT fixed, in this change
+  "Data",                                               # Excluded deliberately: linting them would mean editing them, which is out of scope here
+  "Retrieval",                                          # Each is scheduled for migration in its own PR (see docs/quality-architecture.md §5)
+  "Generation",
+  "Evaluation",
+  "app.py",
+  "build_corpus.py",
+  ".venv",
+]
+
+[tool.ruff.lint]
+select = [                                              # Explicit allow-list of rule families, so enabling a new one is a deliberate act
+  "E", "W",                                             # pycodestyle errors and warnings
+  "F",                                                  # pyflakes — unused imports/variables, undefined names
+  "I",                                                  # isort — deterministic import ordering
+  "B",                                                  # flake8-bugbear — likely bugs (mutable defaults, broad except patterns)
+  "UP",                                                 # pyupgrade — keeps syntax modern for the pinned floor
+  "S",                                                  # flake8-bandit — SECURITY: catches eval/exec/pickle/unsafe-yaml, which this task forbids
+  "SIM",                                                # flake8-simplify
+  "PTH",                                                # flake8-use-pathlib — prefer pathlib over os.path
+  "RUF",                                                # ruff's own rules
+]
+ignore = [
+  "E501",                                               # Line length is enforced by the formatter; trailing explanatory comments may legitimately overrun
+  "S101",                                               # `assert` is allowed — pytest is built on it
+]
+
+[tool.ruff.lint.per-file-ignores]
+"synapse/_legacy/pickle_reader.py" = ["S301", "S403"]   # This module MUST reference pickle — it is the quarantined migration-only reader; the restriction is enforced by RestrictedUnpickler, and the exemption is scoped to this one file so no other module can import pickle without tripping the linter
+"tests/*" = ["S105", "S106", "S311"]                    # Tests legitimately use hard-coded fake tokens and non-cryptographic randomness
+
+[tool.ruff.lint.isort]
+known-first-party = ["synapse"]                         # Keeps first-party imports in their own block
+
+# -------------------------------------------------------------------------
+# pytest
+# -------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]                                   # Only collect from tests/ — never sweep the legacy trees, whose __main__ blocks perform I/O
+python_files = ["test_*.py"]
+pythonpath = ["."]                                      # Put the repo root on sys.path so `from tests.conftest import ...` resolves. Without this, bare `pytest` fails collection while `python -m pytest` succeeds (the latter injects CWD itself) — CI runs the bare form, so the difference was a real, invocation-dependent break.
+addopts = [
+  "-q",                                                 # Quiet progress output
+  "--strict-markers",                                   # An unregistered marker is an error, not a silent no-op
+  "--strict-config",
+  "-m", "not live and not slow",                                     # Deselect network-touching tests BY DEFAULT so the standard run is fully offline
+]
+markers = [
+  "live: touches the network or a paid API; deselected by default, run explicitly with -m live",
+  "slow: starts a real server or browser; deselected by default, run explicitly with -m slow",
+]
+filterwarnings = [
+  "error::DeprecationWarning",                          # Surface deprecations as failures in our own code rather than letting them rot
+  "default::DeprecationWarning:streamlit.*",            # ...but do not fail on third-party deprecations we do not control
+]
+
+# -------------------------------------------------------------------------
+# mypy
+#
+# Scoped rather than repo-wide. The legacy application modules carry no
+# annotations, and turning them on would produce hundreds of findings that
+# drown the ones that matter. Widening the scope is a deliberate act.
+# -------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_equality = true                    # Catches comparisons that can never be true, e.g. an enum against a mistyped string
+disallow_untyped_defs = false             # Not yet: enabling it repo-wide is a separate, reviewable change
+exclude = "(^|/)(Data|Retrieval|Generation|Evaluation|\\.venv)/"
+
+# Optional third-party imports, all of them function-local so the package stays
+# installable without them. An inline `type: ignore` is the wrong tool here: the
+# error code depends on whether the package happens to be installed in the
+# environment running mypy (`import-not-found` when absent, `import-untyped`
+# when present without stubs), so an inline comment is correct in one
+# environment and flagged as unused in the other.
+[[tool.mypy.overrides]]
+module = ["faiss.*", "openai.*", "numpy.*", "streamlit.*", "playwright.*", "axe_core_python.*"]
+ignore_missing_imports = true

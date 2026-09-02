@@ -1,0 +1,47 @@
+venv/
+__pycache__/
+*.pkl
+*.faiss
+*.npy
+*.pyc
+.env
+.DS_Store
+bm25_test/
+bm25_index/
+vector_store/
+vector_store_test/
+hybrid_index/          # Generated index. Regenerable via build_corpus.py; not source.
+eval_log*.json
+# NOTE: processed_chunks.pkl is already covered by `*.pkl` above. It is the
+# app's runtime corpus cache (loaded at app.py:671) and the fixture behind
+# TestRealCorpusMigration, so keep the FILE on disk — just never commit it.
+
+# ---------------------------------------------------------------------------
+# Added with the synapse artifact layer (see docs/artifact-format.md)
+# ---------------------------------------------------------------------------
+
+# Generated corpus and index artifacts. These are BUILD OUTPUT: reproducible by
+# re-running `python -m synapse.cli.migrate_artifacts`, and large (the FAISS
+# index alone is ~14 MB). They are deliberately not committed.
+artifacts/
+
+# Python virtual environment created for the 3.11 toolchain
+.venv/
+
+# Editable-install and build metadata
+*.egg-info/
+build/
+dist/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated study guide export
+output/pdf/synapse_master_study_guide.pdf
+
+# Local telemetry sink — development only, never committed.
+# See docs/privacy-logging-policy.md §6 for retention and deletion.
+artifacts/telemetry/

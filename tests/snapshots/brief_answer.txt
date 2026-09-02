@@ -1,0 +1,44 @@
+APPOINTMENT BRIEF
+=================
+
+Prepared: 01 January 2026, 09:30 UTC
+Document 0123456789ab
+
+WHAT I WANT TO TALK ABOUT
+-------------------------
+
+[written by you] why does my blood sugar keep going up?
+
+WHAT THE RESEARCH SAYS
+----------------------
+
+Your HbA1c test shows your average blood sugar over the past two to three months.
+
+DETAILS FROM PUBLISHED RESEARCH
+-------------------------------
+
+- HbA1c reflects average plasma glucose over 2-3 months. [1]
+- Regular review supports earlier detection of complications. [2]
+
+QUESTIONS TO ASK
+----------------
+
+1. What does my result mean for me specifically?
+2. How often should this be rechecked?
+
+WHAT THIS DOES NOT COVER
+------------------------
+
+- This is general information from published research, not advice about your own care.
+
+SOURCES
+-------
+
+[1] HbA1c Targets in Adults
+    Type not recorded · No governance record
+    https://pubmed.ncbi.nlm.nih.gov/41802233/
+[2] Routine Diabetes Review
+    Type not recorded · No governance record
+    https://pubmed.ncbi.nlm.nih.gov/41900001/
+
+This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.

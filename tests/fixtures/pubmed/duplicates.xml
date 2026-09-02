@@ -1,0 +1,64 @@
+<?xml version="1.0" ?>
+<!-- Fixture: three deduplication paths in one file.
+     40000030 is the canonical record.
+     40000030 appears AGAIN (same PMID)                     -> rule "pmid".
+     40000031 shares the DOI, cased differently + resolver  -> rule "doi".
+     40000032 shares only the normalised title and year     -> rule "title_year". -->
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000030</PMID>
+      <Article PubModel="Print">
+        <Journal><JournalIssue><PubDate><Year>2024</Year><Month>Jan</Month></PubDate></JournalIssue><Title>Journal of Repetition</Title></Journal>
+        <ArticleTitle>Metformin as first-line therapy: a review.</ArticleTitle>
+        <ELocationID EIdType="doi" ValidYN="Y">10.1000/DUP-1</ELocationID>
+        <Abstract><AbstractText>Metformin remains the preferred initial pharmacologic agent for most adults with type 2 diabetes, on the basis of efficacy, cost and a well-characterised safety profile.</AbstractText></Abstract>
+        <Language>eng</Language>
+        <PublicationTypeList><PublicationType UI="D016454">Review</PublicationType></PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData><ArticleIdList><ArticleId IdType="pubmed">40000030</ArticleId><ArticleId IdType="doi">10.1000/DUP-1</ArticleId></ArticleIdList></PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000030</PMID>
+      <Article PubModel="Print">
+        <Journal><JournalIssue><PubDate><Year>2024</Year><Month>Jan</Month></PubDate></JournalIssue><Title>Journal of Repetition</Title></Journal>
+        <ArticleTitle>Metformin as first-line therapy: a review.</ArticleTitle>
+        <Abstract><AbstractText>Metformin remains the preferred initial pharmacologic agent for most adults with type 2 diabetes, on the basis of efficacy, cost and a well-characterised safety profile.</AbstractText></Abstract>
+        <Language>eng</Language>
+        <PublicationTypeList><PublicationType UI="D016454">Review</PublicationType></PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData><ArticleIdList><ArticleId IdType="pubmed">40000030</ArticleId></ArticleIdList></PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000031</PMID>
+      <Article PubModel="Electronic">
+        <Journal><JournalIssue><PubDate><Year>2024</Year><Month>Feb</Month></PubDate></JournalIssue><Title>Journal of Repetition (Online First)</Title></Journal>
+        <ArticleTitle>Metformin as first line therapy - a review</ArticleTitle>
+        <Abstract><AbstractText>Ahead-of-print version of the same article, indexed under a second PMID, which is why DOI matching exists as a separate deduplication stage.</AbstractText></Abstract>
+        <Language>eng</Language>
+        <PublicationTypeList><PublicationType UI="D016454">Review</PublicationType></PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData><ArticleIdList><ArticleId IdType="pubmed">40000031</ArticleId><ArticleId IdType="doi">https://doi.org/10.1000/dup-1</ArticleId></ArticleIdList></PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000032</PMID>
+      <Article PubModel="Print">
+        <Journal><JournalIssue><PubDate><Year>2024</Year><Month>Mar</Month></PubDate></JournalIssue><Title>Reprint Digest</Title></Journal>
+        <ArticleTitle>Metformin as First-Line Therapy: A Review!</ArticleTitle>
+        <Abstract><AbstractText>A reprint carrying neither the original PMID nor its DOI, so only normalised title plus publication year can identify it as the same work.</AbstractText></Abstract>
+        <Language>eng</Language>
+        <PublicationTypeList><PublicationType UI="D016454">Review</PublicationType></PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData><ArticleIdList><ArticleId IdType="pubmed">40000032</ArticleId></ArticleIdList></PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

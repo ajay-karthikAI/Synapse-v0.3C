@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synapse — Service failure</title>
+<style>
+:root {
+  --border-button: #8b5cf6;  /* Primary button edge. Raised from #6d28d9 (2.88:1). */
+  --border-card: #62628c;  /* Card edge. Raised from #1c1c30 (1.17:1). A first attempt at #3a3a5c still only reached 1.80:1, which is why this table is checked rather than eyeballed. */
+  --border-control: #6b5bb5;  /* Interactive boundaries: the evidence disclosure, links. Raised from #241a4d (1.24:1). */
+  --border-emergency: #ef4444;  /* Emergency card */
+  --focus-ring: #c4b5fd;  /* Focus indicator against the page. */
+  --focus-ring-card: #c4b5fd;  /* The same ring against a card, measured separately. */
+  --text-accent: #a78bfa;  /* Citation markers and links */
+  --text-body: #b9b9c6;  /* Card body and claims */
+  --text-caution: #e0b45f;  /* Partly-verified flag and caution labels. Never the only signal; text says it too. */
+  --text-disclaimer: #b0b0c8;  /* The permanent disclaimer. Raised furthest: it must never be too faint to read. */
+  --text-emergency: #fca5a5;  /* Emergency body */
+  --text-emergency-title: #f87171;  /* Emergency heading */
+  --text-footer: #a8a8c0;  /* Footer disclaimer and empty-state hint. Raised from #5a5a7a (3.10:1). */
+  --text-label: #c9bbff;  /* Evidence label names */
+  --text-label-why: #a6a6c2;  /* Label explanations */
+  --text-muted: #9a9ab8;  /* Secondary detail. Raised from #4a4a6a (2.32:1), which was unreadable. */
+  --text-muted-deep: #9a9ab8;  /* Same token on the sunken surface, measured separately. */
+  --text-primary: #e8e8e8;  /* Body copy */
+  --text-question: #c3b5e0;  /* Question list items */
+  --text-quote: #b6b6c8;  /* Verbatim excerpts */
+  --text-section: #a0a0bd;  /* Uppercase section labels. Small, so held to the body threshold, not the large one. */
+  --text-staff: #fcd34d;  /* Clinical-staff routing */
+  --text-user: #c4b5fd;  /* The patient's own words */
+  --surface-page: #05030d;
+  --surface-card: #0b0b1a;
+  --surface-sunken: #0a0a18;
+  --surface-inset: #0d0d1f;
+  --surface-deep: #080814;
+  --surface-user: #12062a;
+  --surface-emergency: #140505;
+  --surface-staff: #14100a;
+}
+
+
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, [class*="css"] {
+  font-family: 'Inter Tight', sans-serif;
+  background-color: #05030D;
+  color: #e8e8e8;
+}
+
+.stApp {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(138,92,246,0.25), transparent 40%),
+    linear-gradient(180deg, #0E0A1F 0%, #05030D 100%) !important;
+  min-height: 100vh;
+}
+
+/* Edge streaks — on body so they escape all Streamlit containers */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  bottom: -30px;
+  width: 4px;
+  height: 320px;
+  background: linear-gradient(to top, rgba(167,139,250,1) 0%, rgba(139,92,246,0.75) 35%, rgba(109,40,217,0.35) 65%, transparent 100%);
+  box-shadow: 0 0 22px 7px rgba(139,92,246,0.75), 0 0 65px 18px rgba(109,40,217,0.4);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 99999;
+  animation: streak-breathe 3.5s ease-in-out infinite;
+}
+body::before { left: 38px;  transform: rotate(-20deg); transform-origin: bottom center; }
+body::after  { right: 38px; transform: rotate(20deg);  transform-origin: bottom center; animation-delay: 0.7s; }
+
+/* Requirement 24: the app used to hide #MainMenu, header and the toolbar with
+   display:none, which removes them from the accessibility tree entirely. That
+   menu is where Streamlit keeps Settings (theme, wide mode) and Print, and the
+   header is where the keyboard focus sequence begins. They are restored.
+
+   Only the "Made with Streamlit" footer stays hidden: it is promotional, it is
+   not a control, and hiding it removes nothing a user needs. */
+footer { visibility: hidden; display: none; }
+
+.block-container {
+  max-width: 560px;
+  padding: 0 1.25rem 7rem 1.25rem;
+  margin: 0 auto;
+}
+
+/* Animated edge streaks */
+.streak-left, .streak-right {
+  position: fixed;
+  bottom: -24px;
+  width: 2px;
+  height: 270px;
+  background: linear-gradient(to top, rgba(139,92,246,1) 0%, rgba(109,40,217,0.55) 55%, transparent 100%);
+  box-shadow: 0 0 18px 3px rgba(139,92,246,0.65), 0 0 55px 8px rgba(109,40,217,0.35);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: streak-breathe 3.5s ease-in-out infinite;
+}
+.streak-left  { left: 52px;  transform: rotate(-22deg); transform-origin: bottom center; }
+.streak-right { right: 52px; transform: rotate(22deg);  transform-origin: bottom center; animation-delay: 0.6s; }
+
+@keyframes streak-breathe {
+  0%, 100% { opacity: 0.32; }
+  50%       { opacity: 0.88; }
+}
+
+/* Hero */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 0 2rem 0;
+}
+
+.logo-glow {
+  position: relative;
+  width: 210px;
+  height: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.logo-glow::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(109,40,217,0.35) 0%, rgba(91,33,182,0.12) 55%, transparent 72%);
+  animation: glow-pulse 3.5s ease-in-out 3 forwards;
+}
+
+@keyframes glow-pulse {
+  0%,100% { transform: scale(1);    opacity: 0.55; }
+  50%      { transform: scale(1.14); opacity: 1;   }
+}
+
+.logo-svg {
+  width: 190px;
+  height: 190px;
+  position: relative;
+  z-index: 1;
+  animation: pop-in 0.9s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.8) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0);   }
+}
+
+.hb-line {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: draw-line 1.4s 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+
+@keyframes draw-line {
+  to { stroke-dashoffset: 0; }
+}
+
+.app-name {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 4.1rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.045em;
+  color: #ffffff;
+  line-height: 1;
+  text-align: center;
+  animation: rise 0.7s 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+.company-tag {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 300;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-footer);
+  margin-top: 0.5rem;
+  text-align: center;
+  animation: rise 0.7s 0.65s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* Conversation */
+.bubble-user {
+  background: #12062a;
+  border: 1px solid #2e1065;
+  color: #c4b5fd;
+  border-radius: 18px 18px 4px 18px;
+  padding: 0.875rem 1.125rem;
+  max-width: 86%;
+  margin-left: auto;
+  font-size: 0.91rem;
+  line-height: 1.55;
+  font-family: 'Inter Tight', sans-serif;
+}
+
+/* What the system took a follow-up to mean. Deliberately quiet: it is a
+   disclosure, not a finding, and it sits between the patient's words and the
+   answer so it reads in the order it happened.
+
+   Carries a text label ("Answering about"), a border and an italic value, so it
+   is never distinguished by colour alone. Colours are existing verified tokens
+   rather than new ones -- a new token needs its own contrast entry, and reusing
+   a measured pair is safer than adding an unmeasured one. Not interactive, so
+   no touch-target floor applies; if it ever gains a control, it needs 44px. */
+.rewrite-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.45rem 0 0.1rem auto;
+  padding: 0.4rem 0.65rem;
+  max-width: 86%;
+  width: fit-content;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  font-family: 'Inter Tight', sans-serif;
+  /* A long resolved query must wrap, not overflow, at 320px. */
+  overflow-wrap: anywhere;
+}
+.rewrite-chip-label {
+  color: var(--text-section);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  font-size: 0.62rem;
+  flex-shrink: 0;
+}
+.rewrite-chip-value { color: var(--text-label-why); font-style: italic; }
+
+.resp-wrap { display: flex; flex-direction: column; gap: 0.7rem; }
+
+.resp-card {
+  background: #0b0b1a;
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  padding: 0.95rem 1.1rem;
+}
+
+/* Section labels.
+   These are real <h2> and <h3> elements so a screen reader can navigate the
+   answer, which is what they are for. They are NOT visually headings: they are
+   small uppercase labels.
+
+   Streamlit styles headings inside its markdown container with a selector of
+   the form `.st-emotion-cache-<hash> h2`, specificity (0,1,1), which beats a
+   bare `.card-label` at (0,1,0). The result was 20px type with 16px of vertical
+   padding on every label. The hash changes between Streamlit releases, so it
+   cannot be targeted directly; !important is the honest tool here, and it is
+   scoped to these two classes rather than applied to headings generally. */
+h1.card-label, h2.card-label, h3.card-label, h4.card-label,
+h1.ev-title, h2.ev-title, h3.ev-title, h4.ev-title,
+h2.insufficient-heading, h3.insufficient-heading,
+h2.emerg-title, h3.emerg-title {
+  font-family: 'Inter Tight', sans-serif !important;
+  padding: 0 !important;
+  margin: 0 0 0.5rem 0 !important;
+  line-height: 1.35 !important;
+}
+
+h1.card-label, h2.card-label, h3.card-label, h4.card-label {
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.13em !important;
+  text-transform: uppercase !important;
+  color: var(--text-section) !important;
+}
+
+/* The remaining headings are genuine titles, but still nowhere near Streamlit's
+   default heading scale. Sizes restated with the same weight for the same
+   specificity reason. */
+h1.ev-title, h2.ev-title, h3.ev-title, h4.ev-title {
+  font-size: 0.86rem !important;
+  font-weight: 600 !important;
+  color: #ddd !important;
+}
+h2.insufficient-heading, h3.insufficient-heading {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+}
+h2.emerg-title, h3.emerg-title {
+  font-size: 0.98rem !important;
+  font-weight: 700 !important;
+}
+
+/* Limitations: a footnote, not a section. Same information, a fraction of the
+   visual weight, and no card of its own. */
+.limits-note {
+  margin: 0.1rem 0 0 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 2px solid var(--border-card);
+  background: transparent;
+}
+.limits-note h2.limits-label,
+.limits-note h3.limits-label {
+  font-size: 0.58rem !important;
+  color: var(--text-section) !important;
+  margin: 0 0 0.3rem 0 !important;
+}
+.limits-list {
+  margin: 0;
+  padding-left: 1rem;
+  list-style: disc;
+}
+.limits-list li {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0.15rem 0;
+}
+
+.card-label {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.card-body {
+  font-size: 0.88rem;
+  color: var(--text-body);
+  line-height: 1.62;
+  font-family: 'Inter Tight', sans-serif;
+}
+
+.q-card {
+  background: #0b0b1a;
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  padding: 0.95rem 1.1rem;
+}
+
+.q-item {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  margin: 0.5rem 0;
+  font-size: 0.88rem;
+  color: var(--text-question);
+  line-height: 1.5;
+  font-family: 'Inter Tight', sans-serif;
+}
+
+.q-arrow { color: #7c3aed; font-weight: 700; flex-shrink: 0; }
+
+.emerg-card {
+  background: #140505;
+  border: 1.5px solid #991b1b;
+  border-radius: 14px;
+  padding: 1.25rem;
+  font-size: 0.88rem;
+  color: #fca5a5;
+  line-height: 1.65;
+}
+
+.emerg-title {
+  font-family: 'Inter Tight', sans-serif;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--text-emergency-title);
+  margin-bottom: 0.6rem;
+}
+
+.src-item {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.4rem 0;
+  font-size: 0.8rem;
+}
+
+.src-name { font-weight: 500; color: #ccc; margin-bottom: 0.15rem; }
+.src-sub  { font-size: 0.72rem; color: var(--text-muted); }
+
+.conf-bar  { height: 3px; background: #1a1a2a; border-radius: 2px; margin-top: 0.45rem; overflow: hidden; }
+.conf-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg,#5b21b6,#8b5cf6); }
+
+.turn-div { border: none; border-top: 1px solid #141424; margin: 1.25rem 0; }
+
+/* ---------------------------------------------------------------------
+   Accessibility foundations.
+   --------------------------------------------------------------------- */
+
+/* A visible focus indicator on every focusable thing, including Streamlit's
+   own widgets. :focus-visible keeps it off for mouse clicks. The ring is
+   measured against both the page and a card in synapse.a11y.palette. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible,
+.stButton > button:focus-visible,
+.stTextArea textarea:focus-visible,
+.stTextInput input:focus-visible,
+.stMultiSelect div[data-baseweb="select"]:focus-within,
+.stDownloadButton > button:focus-visible {
+  outline: 3px solid var(--focus-ring) !important;
+  outline-offset: 2px !important;
+  border-radius: 6px;
+}
+
+/* Skip link: first thing in the tab order, visible once focused. Streamlit
+   renders a lot of chrome before the form, and a keyboard user should not have
+   to walk through it on every rerun. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100000;
+  padding: 0.7rem 1rem;
+  background: var(--surface-card);
+  color: var(--text-primary);
+  border: 2px solid var(--focus-ring);
+  border-radius: 0 0 8px 0;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: 0;
+}
+
+/* A collapsed sidebar is moved off-screen with a transform, but keeps
+   visibility:visible, so every control inside it stays in the tab order. On a
+   phone that means eight invisible stops before a keyboard user reaches
+   anything they can see, which is a 2.4.3 and 2.4.7 failure: focus lands on
+   things that are not perceivable.
+
+   visibility:hidden removes descendants from the tab order, and Streamlit sets
+   aria-expanded on the sidebar, so the rule reverses itself the moment the user
+   opens it. The transition delay lets the slide-out animation finish before the
+   contents become focusable again. */
+[data-testid="stSidebar"][aria-expanded="false"] {
+  visibility: hidden;
+}
+[data-testid="stSidebar"][aria-expanded="true"] {
+  visibility: visible;
+}
+
+/* Minimum touch target, applied to Streamlit's controls as well as our own. */
+.stButton > button,
+.stDownloadButton > button,
+.stTextInput input,
+.stMultiSelect div[data-baseweb="select"] {
+  min-height: 44px !important;
+}
+
+/* Screen-reader-only, kept in the accessibility tree. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Form labels are persistent and visible. The question field previously used
+   a collapsed label with a placeholder standing in for it, which disappears
+   the moment anyone types (requirements 13 and 14). */
+.stTextArea label, .stTextInput label, .stMultiSelect label {
+  display: block !important;
+  visibility: visible !important;
+  color: var(--text-primary) !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 0.3rem !important;
+}
+
+/* Reflow: no horizontal scrolling at 320px, and nothing that breaks at 200%
+   zoom. Widths are relative and long strings wrap rather than overflow. */
+/* overflow-x on <html> turns the document element into a scroll container,
+   which assistive technology and axe both flag as a scrollable region with no
+   keyboard access. Constraining the body instead keeps normal document
+   scrolling, which is keyboard accessible by definition. */
+body { overflow-x: hidden; }
+.block-container { overflow-wrap: anywhere; }
+
+/* Decorative motion. Everything below is ornament: it carries no information,
+   so it is switched off entirely when the user asks for less motion. The
+   selectors cover the streak elements, which used to carry inline animation
+   styles that a media query could not reach. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .streak-decor { display: none !important; }
+}
+
+/* The in-app equivalent, applied when the reduce-motion setting is on. Some
+   users cannot change an OS-level preference on a shared or clinic machine,
+   which is the case the setting exists for. */
+body.synapse-reduce-motion *,
+body.synapse-reduce-motion *::before,
+body.synapse-reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Structured answer — one class per typed field rendered by
+   synapse.answer.render. The container carries data-action, so the four action
+   states are styleable (and inspectable) without parsing anything. */
+.answer-view { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.claim { font-size: 0.88rem; color: var(--text-body); line-height: 1.74; margin: 0.35rem 0; }
+.cite  { color: var(--text-accent); font-weight: 700; font-size: 0.8rem; }
+
+/* A partially-supported claim is displayed, per the P1 display policy, but it
+   is never displayed unmarked. */
+.partial-flag {
+  color: var(--text-caution);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.staff-card {
+  background: #14100a;
+  border: 1.5px solid #92400e;
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  font-size: 0.88rem;
+  color: #fcd34d;
+  line-height: 1.65;
+}
+
+.abstain-card {
+  background: #0b0b1a;
+  border: 1px dashed var(--border-card);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+}
+.abstain-card .card-label { color: var(--text-section); }
+
+/* The permanent disclaimer. Rendered from a module constant on every answer,
+   including abstentions, escalations and failures. */
+.disclaimer-permanent {
+  font-size: 0.74rem;
+  color: var(--text-disclaimer);
+  line-height: 1.6;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--border-control);
+  background: var(--surface-deep);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Evidence cards: the verbatim spans behind each displayed claim. */
+.ev-card {
+  background: #0a0a18;
+  border: 1px solid #181828;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  margin: 0.4rem 0;
+}
+.ev-quote  { margin: 0.5rem 0; font-size: 0.8rem; }
+.ev-source { color: var(--text-label-why); font-size: 0.78rem; }
+.ev-text {
+  margin: 0.3rem 0 0.2rem 0;
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--border-control);
+  color: var(--text-quote);
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.src-empty { color: var(--text-muted); font-size: 0.82rem; padding: 0.5rem 0; }
+
+/* ---------------------------------------------------------------------
+   Evidence experience — mobile-first, keyboard-operable, no hover-only.
+
+   The disclosure is a native <details>/<summary>: keyboard operable, exposes
+   its expanded state to assistive technology without an aria attribute anyone
+   can forget to update, and works with no JavaScript (which Streamlit's
+   markdown sanitiser would strip anyway).
+
+   Everything below wraps rather than truncates. A long journal name or a
+   verbatim excerpt must stay readable at 320px, which is the narrowest phone
+   still in common use.
+   --------------------------------------------------------------------- */
+
+.claim-block { margin: 0.4rem 0 0.9rem 0; }
+
+/* Screen-reader-only text: available to assistive technology, invisible on
+   screen. The clip-path form is used rather than display:none, which would
+   remove it from the accessibility tree entirely. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ev-details { margin: 0.35rem 0 0 0; }
+
+.ev-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  list-style: none;
+  padding: 0.55rem 0.7rem;
+  min-height: 44px;              /* Touch target floor */
+  border: 1px solid var(--border-control);
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  color: var(--text-question);
+  font-size: 0.82rem;
+  font-family: 'Inter Tight', sans-serif;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ev-summary::-webkit-details-marker { display: none; }
+
+/* A visible, high-contrast focus ring. Keyboard users must be able to see
+   where they are; :focus-visible keeps it off for mouse clicks. */
+.ev-summary:focus-visible {
+  outline: 3px solid #a78bfa;
+  outline-offset: 2px;
+  border-color: #a78bfa;
+}
+.ev-summary:hover { border-color: #4c1d95; background: #0d0d1f; }
+
+/* The disclosure triangle is drawn from the element's own open state, so the
+   visual and the semantic state cannot drift apart. */
+.ev-summary::before {
+  content: '▸';
+  color: #8b5cf6;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.ev-details[open] > .ev-summary::before { content: '▾'; }
+.ev-details[open] > .ev-summary { border-color: #4c1d95; border-radius: 10px 10px 0 0; }
+
+.ev-summary-text { flex: 1 1 auto; color: var(--text-question); }
+.ev-summary-marker { color: #8b5cf6; font-weight: 600; flex-shrink: 0; }
+
+.ev-cards {
+  border: 1px solid var(--border-control);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  padding: 0.6rem;
+  background: #080814;
+}
+
+.ev-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 0.85rem;
+  margin: 0.5rem 0;
+  /* Long identifiers and unbroken strings must wrap, not overflow. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ev-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #ddd;
+  line-height: 1.45;
+  margin-bottom: 0.5rem;
+}
+.ev-number { color: #8b5cf6; margin-right: 0.3rem; }
+
+.ev-section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-disclaimer);
+  margin: 0.5rem 0 0.3rem 0;
+}
+
+.ev-quote {
+  margin: 0.3rem 0;
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid #4c1d95;
+  background: #0d0d1f;
+  border-radius: 0 6px 6px 0;
+  color: #b9b9c6;
+  font-size: 0.83rem;
+  line-height: 1.65;
+  font-style: italic;
+}
+.ev-chunk {
+  display: block;
+  margin-top: 0.35rem;
+  font-style: normal;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Definition list: stacked on a phone, two columns once there is room. */
+.ev-meta { margin: 0.6rem 0 0 0; font-size: 0.76rem; }
+.ev-row { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.25rem 0; border-top: 1px solid #14142a; }
+.ev-row dt { color: var(--text-section); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.ev-row dd { color: #b9b9c6; margin: 0; }
+@media (min-width: 420px) {
+  .ev-row { flex-direction: row; gap: 0.75rem; }
+  .ev-row dt { flex: 0 0 8.5rem; }
+  .ev-row dd { flex: 1 1 auto; }
+}
+
+.ev-labels { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.7rem; }
+.ev-label {
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-card);
+}
+.ev-label-name { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-label); }
+/* The explanation is always-visible text, never a title tooltip: a tooltip is
+   hover-only and invisible on a touch screen. */
+.ev-label-why { display: block; margin-top: 0.2rem; font-size: 0.74rem; color: var(--text-label-why); line-height: 1.5; }
+.ev-tone-caution { border-color: #4a3a10; background: #14100a; }
+.ev-tone-caution .ev-label-name { color: var(--text-caution); }
+
+/* Retrieval relevance sits apart from the governance labels: it is a search
+   score, not a judgement about the evidence. */
+.ev-relevance { margin-top: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: #080814; border: 1px dashed var(--border-control); }
+.ev-relevance-value { display: block; font-size: 0.74rem; color: var(--text-label-why); }
+
+.ev-links { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
+.ev-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #2e1065;
+  border-radius: 8px;
+  color: #a78bfa !important;
+  text-decoration: none;
+  font-size: 0.76rem;
+}
+.ev-link:focus-visible { outline: 3px solid #a78bfa; outline-offset: 2px; }
+.ev-link:hover { background: rgba(109,40,217,0.13); }
+
+.ev-pack { margin-top: 0.6rem; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
+.ev-pack-id { color: var(--text-label-why); }
+.ev-empty { color: var(--text-muted); font-size: 0.82rem; }
+
+/* Insufficient evidence — a designed state, not an error card. Deliberately
+   not red: the system having no citation is an ordinary limitation, and
+   styling it as a fault invites a reader to think their question was alarming. */
+.insufficient-card {
+  background: #0b0b1a;
+  border: 1px solid #2a2a45;
+  border-left: 3px solid #6d28d9;
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  margin: 0.5rem 0;
+}
+.insufficient-heading { font-size: 0.95rem; font-weight: 700; color: #ddd; margin-bottom: 0.5rem; line-height: 1.4; }
+.insufficient-message { font-size: 0.88rem; color: var(--text-body); line-height: 1.7; }
+.insufficient-caveat { margin-top: 0.6rem; font-size: 0.84rem; color: var(--text-label-why); line-height: 1.65; }
+.insufficient-steps { margin: 0.4rem 0 0 1.1rem; padding: 0; }
+.insufficient-steps li { font-size: 0.85rem; color: var(--text-question); line-height: 1.6; margin: 0.35rem 0; }
+
+/* Respect a reduced-motion preference across every animation on the page. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Disclaimer */
+.disclaimer {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-footer);
+  letter-spacing: 0.02em;
+  line-height: 1.7;
+  padding: 0.75rem 0.5rem 0.6rem 0.5rem;
+  border-top: 1px solid #14142a;
+  margin-bottom: 0.4rem;
+  animation: rise 0.7s 0.8s both;
+  font-family: 'Inter Tight', sans-serif;
+}
+
+.not-red { color: #8b0000; font-weight: 700; }
+
+/* Input */
+/* The rule that used to live here hid every Streamlit form label with
+   display:none, which removes it from the accessibility tree. Labels are now
+   visible and persistent; see the accessibility block above. */
+.stTextArea textarea {
+  background: #090916 !important;
+  border: 1px solid #1e1e38 !important;
+  border-radius: 14px !important;
+  color: #e0e0e0 !important;
+  font-family: 'Inter Tight', sans-serif !important;
+  font-size: 0.93rem !important;
+  padding: 0.9rem 1rem !important;
+  resize: none !important;
+}
+.stTextArea textarea:focus {
+  border-color: #5b21b6 !important;
+  box-shadow: 0 0 0 3px rgba(91,33,182,0.14) !important;
+}
+.stTextArea textarea::placeholder { color: #3a3a5a !important; }
+
+/* Streamlit prints "Press ⌘+Enter to submit form" inside a form's text area.
+   That instruction is now FALSE: the binding above sends on plain Enter and
+   reserves Shift+Enter for a new line. Leaving it would teach a shortcut that
+   is no longer the one that works, and display:none removes it from the
+   accessibility tree as well as the screen — which is correct here, because a
+   wrong instruction read aloud is worse than no instruction. The true one is in
+   the field's help text, which is properly associated with the input.
+
+   Scoped to the form on purpose. The appointment brief has its own text areas
+   outside it, where Streamlit's hint still describes real behaviour. Targeted
+   by data-testid because Streamlit's class names are hashed and change between
+   releases. */
+[data-testid="stForm"] [data-testid="InputInstructions"] { display: none; }
+
+.stButton > button {
+  background: transparent !important;
+  color: #fff !important;
+  border: 1.5px solid var(--border-button) !important;
+  border-radius: 12px !important;
+  padding: 0.72rem 2rem !important;
+  font-family: 'Inter Tight', sans-serif !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  width: 100% !important;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s !important;
+}
+.stButton > button:hover {
+  background: rgba(109,40,217,0.13) !important;
+  border-color: #8b5cf6 !important;
+  transform: translateY(-1px) !important;
+}
+.stButton > button:active { transform: translateY(0) !important; }
+
+/* Question-processing progress */
+[data-testid="stProgress"] {
+  margin: 0.85rem 0 0.35rem 0;
+}
+[data-testid="stProgress"] [data-baseweb="progress-bar"] > div > div {
+  background-color: #ffffff !important;
+}
+[data-testid="stProgress"] [data-baseweb="progress-bar"] > div > div > div {
+  background: #7c3aed !important;
+  box-shadow: none !important;
+  transition: transform 0.5s linear !important;
+}
+[data-testid="stProgress"] p {
+  color: #ffffff !important;
+  font-family: 'Inter Tight', sans-serif !important;
+  font-size: 0.78rem !important;
+  letter-spacing: 0.02em;
+}
+
+[data-testid="stSidebar"] { background: #060614 !important; border-right: 1px solid #16162a !important; }
+
+.empty-hint {
+  text-align: center;
+  color: var(--text-footer);
+  font-size: 0.85rem;
+  line-height: 1.8;
+  padding: 1.25rem 0 1.75rem 0;
+  animation: rise 0.7s 0.9s both;
+  font-family: 'Inter Tight', sans-serif;
+}
+
+
+@keyframes streak-breathe-real {
+  0%, 100% { opacity: 0.32; }
+  50%       { opacity: 0.92; }
+}
+.streak-decor {
+  position: fixed; bottom: -30px;
+  width: 4px; height: 320px;
+  background: linear-gradient(to top, rgba(167,139,250,1) 0%, rgba(139,92,246,0.75) 35%, rgba(109,40,217,0.35) 65%, transparent 100%);
+  box-shadow: 0 0 22px 7px rgba(139,92,246,0.75), 0 0 65px 18px rgba(109,40,217,0.4);
+  border-radius: 3px; pointer-events: none; z-index: 99999;
+  animation: streak-breathe-real 3.5s ease-in-out infinite;
+}
+.streak-decor.left  { left: 38px;  transform: rotate(-20deg); transform-origin: bottom center; }
+.streak-decor.right { right: 38px; transform: rotate(20deg);  transform-origin: bottom center; animation-delay: 0.7s; }
+
+ block, because the
+# snapshot harness extracts every <style> it finds in this file. As a literal it
+# was captured unconditionally, which silently disabled motion in every
+# committed snapshot and made the "does anything animate?" test vacuous.
+REDUCED_MOTION_CSS = (
+    "*, *::before, *::after {"
+    " animation: none !important;"
+    " transition: none !important;"
+    " scroll-behavior: auto !important;"
+    " }"
+    " .streak-decor { display: none !important; }"
+)
+
+if st.session_state.get("reduce_motion"):
+    st.markdown(f"<style>{REDUCED_MOTION_CSS}</style>
+<style>
+  /* Snapshot harness only: pins the viewport to the narrowest supported width
+     so a reviewer sees the mobile layout without resizing anything. */
+  /* border-box and no body padding: the frame must fit the viewport it names,
+     or a reflow test measures the harness rather than the interface. */
+  * { box-sizing: border-box; }
+  body { background:#05030D; margin:0; padding:0; font-family:'Inter Tight',system-ui,sans-serif; }
+  .snapshot-frame { width:100%; max-width:320px; margin:0 auto; border:1px dashed #3a3a5c; padding:8px; }
+  .snapshot-caption { color:#a8a8c0; font-size:12px; text-align:center; padding:8px 4px; }
+</style>
+</head><body>
+<div class="snapshot-caption">Service failure — rendered at 320px</div>
+<div class="snapshot-frame"><div class="answer-view" data-action="error">
+<div class="resp-card"><h2 class="card-label">Answer unavailable</h2><div class="card-body">Something went wrong while preparing your answer, so it has not been shown. Nothing here is a substitute for speaking to a member of staff — if you need help now, please tell the front desk.</div><div class="src-sub">Reference code: generation_unavailable</div></div>
+<div class="disclaimer-permanent">This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.</div>
+</div></div>
+</body></html>

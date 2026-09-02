@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<!-- Fixture: title and abstract carrying nested inline markup. The legacy
+     parser's title_el.text truncated at the first child element, producing the
+     corpus entries "Pharmacologic MRI Brain Imaging Studies of Serotonin 5-HT"
+     and "Evaluating the cardio-protective effects of ". -->
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">40000002</PMID>
+      <Article PubModel="Electronic">
+        <Journal>
+          <JournalIssue CitedMedium="Internet">
+            <PubDate><Year>2022</Year><Month>07</Month></PubDate>
+          </JournalIssue>
+          <Title>Journal of Neurochemistry</Title>
+        </Journal>
+        <ArticleTitle>Pharmacologic MRI studies of serotonin 5-HT<sub>2A</sub> and 5-HT<sub>1B</sub> receptor <i>binding</i> in vivo.</ArticleTitle>
+        <Abstract>
+          <AbstractText>Receptor occupancy was measured at K<sub>i</sub> values below 10 nmol/L. Binding to the 5-HT<sub>2A</sub> site correlated with the observed <i>behavioural</i> response across all doses tested in this cohort of participants.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y"><LastName>Okafor</LastName><ForeName>Adaeze</ForeName><Initials>A</Initials></Author>
+        </AuthorList>
+        <Language>eng</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+        </PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <PublicationStatus>epublish</PublicationStatus>
+      <ArticleIdList><ArticleId IdType="pubmed">40000002</ArticleId></ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

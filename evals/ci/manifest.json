@@ -1,0 +1,43 @@
+{
+  "case_count": 54,
+  "cases_sha256": "da25f44887a0a5acfeaaf8df3e99177b578ede400de0ae5f599d4f508ca2082c",
+  "category_counts": {
+    "adversarial_injection": 6,
+    "ambiguous_symptoms": 6,
+    "emergency_red_flag": 6,
+    "followup_resolution": 6,
+    "insufficient_evidence": 6,
+    "medication": 6,
+    "negated_emergency": 6,
+    "ordinary_education": 6,
+    "out_of_scope": 6
+  },
+  "corpus_version": "ci-fixture-corpus-v1",
+  "created_at": "2026-01-01T12:00:00Z",
+  "dataset_id": "synapse-ci",
+  "gating_eligible_count": 0,
+  "generator": "ci-fixture",
+  "git_commit": null,
+  "minimum_reviews_for_gating": 2,
+  "protocol_version": "protocol-1",
+  "provenance_notes": [
+    "Cases marked 'synthetic' are engineering-authored illustrations. They are unreviewed and are excluded from release-gating metrics by construction.",
+    "A case may gate a release only after its review requirements are satisfied; see synapse.evalset.gating and docs/clinical-labeling-protocol.md.",
+    "Relevance labels are pinned to a corpus version and are not portable across versions.",
+    "0.2.0 adds six followup_resolution cases carrying conversational `context` (eval_case schema 1.1). They are synthetic and unreviewed like every other case here, and the follow-up resolution metric they drive is informational only."
+  ],
+  "schema_version": "1.0",
+  "split_counts": {
+    "dev": 0,
+    "test": 0,
+    "train": 0,
+    "unassigned": 54
+  },
+  "status_counts": {
+    "adjudicated": 0,
+    "pending_review": 0,
+    "reviewed": 0,
+    "synthetic": 54
+  },
+  "version": "0.2.0"
+}

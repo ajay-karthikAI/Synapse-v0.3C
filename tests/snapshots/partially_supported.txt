@@ -1,0 +1,17 @@
+Targets vary between people.
+
+- A target below 8% is appropriate for most adults. [1] (partly verified)
+
+What your doctor will evaluate: Your clinician will set a target with you.
+
+Questions to ask your doctor:
+  - What target is right for me?
+
+Limitations:
+  - Targets are individual.
+
+Sources:
+  [1] HbA1c Targets in Adults (pubmed:41802233)
+  [2] Routine Diabetes Review (pubmed:41900001)
+
+This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.

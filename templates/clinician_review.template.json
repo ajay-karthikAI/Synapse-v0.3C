@@ -1,0 +1,53 @@
+{
+  "_instructions": [
+    "CLINICIAN REVIEW TEMPLATE — one file per source reviewed.",
+    "",
+    "Copy this file, fill in every field, then record it with:",
+    "  python -m synapse.cli.source_pack review --pack <DIR> --document-id <ID> --review <THIS FILE>",
+    "",
+    "Delete this _instructions key before submitting; the validator rejects unknown fields.",
+    "",
+    "REVIEWER IDENTITY: reviewer_id is a PSEUDONYM issued to you out-of-band by whoever",
+    "administers the reviewer register. It must match 'rev_' followed by 8 lowercase",
+    "alphanumeric characters. Synapse never generates one. The pseudonym-to-person mapping",
+    "is held OUTSIDE this repository, so a clone of a source pack never carries identities.",
+    "",
+    "EVERY assessment field is mandatory and must contain a substantive answer. Placeholder",
+    "values ('n/a', '-', 'tbd') are rejected. 'None identified' is a valid answer for",
+    "patient_safety_concerns; leaving it blank is not.",
+    "",
+    "You are reviewing this source AGAINST ONE PACK'S DECLARED SCOPE. Read the pack's",
+    "README.md first: a source can be excellent evidence and still be wrong for the",
+    "population or purpose this pack serves.",
+    "",
+    "SEPARATION OF DUTIES: you must not review sources whose discovery query you configured.",
+    "See docs/source-governance.md."
+  ],
+
+  "reviewer_id": "rev_________",
+  "reviewer_role": "clinician",
+  "reviewed_at": "2026-01-01T00:00:00Z",
+  "review_due_at": "2027-01-01",
+  "rubric_version": "rubric-1",
+
+  "_relevance_prompt": "Is this source relevant to the pack's supported topics? Name the topic it supports. If it only partially applies, say which part.",
+  "relevance": "",
+
+  "_population_prompt": "Does the study population match the pack's intended patient population? State the study population explicitly and note any mismatch in age, comorbidity, setting or severity.",
+  "population_applicability": "",
+
+  "_evidence_quality_prompt": "Assess study design, conduct and strength of evidence. Note sample size, control, blinding, follow-up, and whether effect sizes are clinically meaningful rather than merely statistically significant.",
+  "evidence_quality": "",
+
+  "_limitations_prompt": "What limitations must a patient-facing answer not overstate past? Include generalisability, surrogate endpoints, industry funding, and anything the abstract claims more strongly than the data support.",
+  "known_limitations": "",
+
+  "_safety_prompt": "What could go wrong if a patient read a summary of this source before their appointment? Consider: could it discourage seeking care, encourage self-medication, cause alarm, or be misread as personal advice? 'None identified' is valid.",
+  "patient_safety_concerns": "",
+
+  "_decision_prompt": "approved | rejected | needs_changes. 'approved' means: suitable for this pack's population, for this pack's stated use, with the limitations above made clear.",
+  "decision": "needs_changes",
+
+  "_rationale_prompt": "Why this decision, in your own words. An auditor should be able to follow your reasoning without re-reading the source.",
+  "decision_rationale": ""
+}

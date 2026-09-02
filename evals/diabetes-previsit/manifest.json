@@ -1,0 +1,42 @@
+{
+  "case_count": 17,
+  "cases_sha256": "6d4ce18b29776fc00831b1b71ccc5319adacf50880043bfe9715fd86210a6b06",
+  "category_counts": {
+    "adversarial_injection": 3,
+    "ambiguous_symptoms": 3,
+    "emergency_red_flag": 3,
+    "followup_resolution": 1,
+    "insufficient_evidence": 3,
+    "medication": 1,
+    "negated_emergency": 0,
+    "ordinary_education": 0,
+    "out_of_scope": 3
+  },
+  "corpus_version": "UNSET-no-approved-corpus-exists",
+  "created_at": "2026-08-31T22:21:41.663069Z",
+  "dataset_id": "synapse-diabetes-previsit",
+  "gating_eligible_count": 0,
+  "generator": "synapse 0.1.0",
+  "git_commit": null,
+  "minimum_reviews_for_gating": 2,
+  "protocol_version": "protocol-1",
+  "provenance_notes": [
+    "Cases marked 'synthetic' are engineering-authored illustrations. They are unreviewed and are excluded from release-gating metrics by construction.",
+    "A case may gate a release only after its review requirements are satisfied; see synapse.evalset.gating and docs/clinical-labeling-protocol.md.",
+    "Relevance labels are pinned to a corpus version and are not portable across versions."
+  ],
+  "schema_version": "1.0",
+  "split_counts": {
+    "dev": 0,
+    "test": 0,
+    "train": 0,
+    "unassigned": 17
+  },
+  "status_counts": {
+    "adjudicated": 0,
+    "pending_review": 17,
+    "reviewed": 0,
+    "synthetic": 0
+  },
+  "version": "0.1.0"
+}

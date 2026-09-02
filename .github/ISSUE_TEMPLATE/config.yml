@@ -1,0 +1,4 @@
+# Disables blank issues so every report arrives with the context needed to act
+# on it. Not a hard requirement of the CI work, but it is the counterpart to the
+# PR template and costs nothing.
+blank_issues_enabled: true

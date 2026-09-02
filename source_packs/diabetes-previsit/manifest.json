@@ -1,0 +1,66 @@
+{
+  "approval_state": "unapproved_example",
+  "approved_at": null,
+  "approved_by": null,
+  "build_tool_version": "0.1.0",
+  "corpus_sha256": "36b627b17c7245aa5314abf29b5391d96e09ca6b37209f25b6931e3145fb38ac",
+  "created_at": "2026-08-12T22:02:03.678047Z",
+  "description": "Demonstration source pack showing the governance structure. Contains synthetic placeholder sources only. NOT clinically reviewed and NOT usable for patient-facing traffic.",
+  "lifecycle_counts": {
+    "approved": 0,
+    "discovered": 3,
+    "expired": 0,
+    "rejected": 0,
+    "screened": 0,
+    "superseded": 1
+  },
+  "notes": "",
+  "pack_id": "diabetes-previsit",
+  "review_due_at": null,
+  "reviewer_requirements": {
+    "minimum_reviewers_per_source": 1,
+    "required_role": "clinician",
+    "review_interval_days": 365,
+    "rubric_version": "rubric-1",
+    "separation_of_duties": "The reviewer of a source must not be the person who configured its discovery query."
+  },
+  "schema_version": "2.0",
+  "scope": {
+    "excluded_uses": [
+      "Diagnosis of any condition",
+      "Medication dosing, initiation, or adjustment",
+      "Interpretation of an individual patient's test results",
+      "Emergency or urgent-care triage",
+      "Paediatric, pregnancy, or type 1 diabetes populations"
+    ],
+    "intended_patient_population": "EXAMPLE ONLY — adults aged 18+ with an existing type 2 diabetes diagnosis, attending a routine primary-care follow-up",
+    "intended_use": "EXAMPLE ONLY — pre-visit patient education and preparation of questions to ask a clinician",
+    "out_of_scope_topics": [],
+    "supported_topics": [
+      "HbA1c monitoring and what the measurement represents",
+      "Lifestyle factors in type 2 diabetes management",
+      "Questions to ask at a routine diabetes review"
+    ]
+  },
+  "selection_policy": {
+    "description": "Sources selected by automated PubMed discovery, pending human review.",
+    "discovery_queries": [],
+    "exclude_preprints": true,
+    "exclude_retracted": true,
+    "maximum_age_years": null,
+    "minimum_evidence_types": [
+      "guideline",
+      "systematic_review",
+      "meta_analysis",
+      "rct"
+    ],
+    "required_languages": [
+      "eng"
+    ]
+  },
+  "source_count": 4,
+  "superseded_by_version": null,
+  "title": "Diabetes Pre-Visit Education (UNAPPROVED EXAMPLE)",
+  "updated_at": "2026-08-12T22:02:40.065218Z",
+  "version": "0.1.0"
+}

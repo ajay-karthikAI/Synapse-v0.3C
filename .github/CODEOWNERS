@@ -1,0 +1,41 @@
+# .github/CODEOWNERS
+# ===========================================================================
+# ####################################################################
+# #  PLACEHOLDER TEAMS. REPLACE BEFORE ENABLING BRANCH PROTECTION.   #
+# ####################################################################
+#
+# Every handle below is a PLACEHOLDER and does not exist. GitHub silently
+# ignores an unknown owner rather than erroring, so a file left in this state
+# provides NO review requirement at all while appearing to. Replace each
+# @synapse/* entry with a real team before relying on it, and see
+# docs/release-quality-gates.md for the branch-protection setup.
+#
+# Two distinct review populations are modelled on purpose:
+#
+#   @synapse/engineering  — code correctness, tests, CI
+#   @synapse/clinical     — anything that changes what a patient is told, what
+#                           counts as evidence, or what the system is allowed
+#                           to claim. This is NOT an engineering judgement.
+# ===========================================================================
+
+# Default owner for anything not matched below.
+*                                   @synapse/engineering    # PLACEHOLDER
+
+# -- Clinical review required -----------------------------------------------
+# These paths change patient-facing behaviour or the definition of evidence.
+# Engineering approval alone is not sufficient.
+
+/synapse/answer/                    @synapse/engineering @synapse/clinical   # PLACEHOLDER — patient-facing answer text, abstention policy, disclaimer
+/synapse/governance/                @synapse/engineering @synapse/clinical   # PLACEHOLDER — what may enter a production index
+/source_packs/                      @synapse/engineering @synapse/clinical   # PLACEHOLDER — the sources themselves
+/evals/                             @synapse/engineering @synapse/clinical   # PLACEHOLDER — evaluation cases and labels
+/configs/quality-gates.toml         @synapse/engineering @synapse/clinical   # PLACEHOLDER — release thresholds
+/templates/                         @synapse/engineering @synapse/clinical   # PLACEHOLDER — the clinician review form
+/docs/clinical-labeling-protocol.md @synapse/engineering @synapse/clinical   # PLACEHOLDER
+/docs/citation-integrity.md         @synapse/engineering @synapse/clinical   # PLACEHOLDER
+/docs/source-governance.md          @synapse/engineering @synapse/clinical   # PLACEHOLDER
+
+# -- Engineering review -----------------------------------------------------
+/.github/                           @synapse/engineering    # PLACEHOLDER
+/synapse/                           @synapse/engineering    # PLACEHOLDER
+/tests/                             @synapse/engineering    # PLACEHOLDER

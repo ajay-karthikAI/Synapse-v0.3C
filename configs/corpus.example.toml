@@ -1,0 +1,66 @@
+# configs/corpus.example.toml
+# ===========================================================================
+# Example corpus build configuration.
+#
+#   python -m synapse.cli.build_corpus --config configs/corpus.example.toml
+#
+# TOML rather than YAML on purpose: this file is parsed by the standard
+# library's tomllib, which has no code-execution capability. yaml.load does,
+# and a config file is untrusted input by the same argument as any artifact.
+#
+# Documents produced by this build are NOT medically approved. Every record is
+# written approval_status='unreviewed'.
+# ===========================================================================
+
+[corpus]
+version = "corpus-v3"                    # Corpus version label; also the manifest's corpus_version
+index_version = "1"                      # Incremented per rebuild of the same corpus version
+output_dir = "artifacts/corpus-v3"       # Written here; gitignored, since artifacts are build output
+source_pack_version = "sp-2026.08.1"     # Stamped on every SourceDocument
+include_retracted = false                # GOVERNANCE DEFAULT: retracted and expression-of-concern records are excluded.
+                                         # They are still listed individually in the build report, never silently dropped.
+                                         # Setting true includes them, still marked with retraction_status.
+
+[queries]
+max_results_per_query = 20               # Cap per query; total fetched is roughly this times the number of terms
+sort = "relevance"                       # Explicit. The legacy pipeline omitted this and accepted PubMed's default,
+                                         # producing a corpus of almost exclusively very recent records — measured on
+                                         # the shipped artifact, every PMID fell in one recent band, with no
+                                         # guidelines and no landmark trials. Use "date" only if recency is the goal.
+
+# One PubMed search expression per entry. Full PubMed syntax is supported, so
+# publication-type filters can narrow retrieval to stronger evidence, e.g.:
+#   "hypertension AND (practice guideline[pt] OR systematic review[pt])"
+terms = [
+  "type 2 diabetes management AND (practice guideline[pt] OR systematic review[pt])",
+  "hypertension treatment AND (practice guideline[pt] OR meta-analysis[pt])",
+  "asthma symptoms management AND systematic review[pt]",
+  "HbA1c monitoring targets diabetes",
+  "chronic kidney disease staging management",
+]
+
+[chunking]
+target_chars = 800                       # Target passage size. Whole sentences are packed up to this.
+min_chars = 120                          # Sections shorter than this are dropped, and the count is reported.
+                                         # The legacy corpus contains chunks whose entire text is "."; this is the guard.
+max_chars = 1600                         # Hard ceiling. A single sentence longer than this is emitted whole rather
+                                         # than cut mid-clause, and is counted in the report.
+keep_short_sections = false               # true retains sub-min_chars sections instead of dropping them
+
+[embedding]
+# Recorded in the index manifest so a later embedding step can be verified
+# against the corpus it was built from. NO embeddings are computed by this
+# command, so the manifest it writes declares index_state='rebuild_required'.
+provider = "openai"
+model = "text-embedding-3-small"
+dimensions = 1536
+
+[ncbi]
+# All optional. NCBI_API_KEY and NCBI_EMAIL are read from the environment when
+# set; values here override them. Neither is required — without an API key the
+# client paces at NCBI's unauthenticated limit of 3 requests/second instead of 10.
+# email = "you@example.org"              # NCBI can contact you before blocking a misbehaving client
+tool = "synapse"                         # Tool name NCBI asks every caller to send
+timeout_seconds = 20.0                   # Per-request socket timeout; the legacy client had none and could hang forever
+max_attempts = 4                         # Initial attempt plus three retries, with bounded exponential backoff
+# requests_per_second = 3.0              # Override the key-derived rate; lower it to be extra conservative
