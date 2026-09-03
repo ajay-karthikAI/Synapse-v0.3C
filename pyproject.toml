@@ -148,6 +148,13 @@ markers = [
 filterwarnings = [
   "error::DeprecationWarning",                          # Surface deprecations as failures in our own code rather than letting them rot
   "default::DeprecationWarning:streamlit.*",            # ...but do not fail on third-party deprecations we do not control
+  # Starlette's TestClient reads `anyio.abc.BlockingPortal`, an alias anyio now
+  # deprecates. It fires at IMPORT of `fastapi.testclient`, so with
+  # `error::DeprecationWarning` the whole of tests/test_api.py fails to collect
+  # — on a fresh install, which is what CI does, and not on a venv holding an
+  # older anyio. Matched on the exact message rather than on a module, so it
+  # silences this one upstream alias and cannot hide a deprecation of ours.
+  "default:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
 ]
 
 # -------------------------------------------------------------------------

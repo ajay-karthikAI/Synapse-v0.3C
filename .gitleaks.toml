@@ -1,0 +1,45 @@
+# ===========================================================================
+# gitleaks configuration.
+#
+# The default rule set, plus an allowlist for a handful of *deliberately fake*
+# credentials that exist in the test suite. Each is allowlisted by its exact
+# literal value rather than by file path: allowlisting a path would mean a real
+# key pasted into that file went unreported forever, which is the failure mode
+# this scanner exists to prevent.
+#
+# Nothing here weakens scanning of application code. If any of these strings
+# ever appears somewhere new, it is still a test constant; if a *different*
+# secret appears anywhere, it is still reported.
+# ===========================================================================
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Deliberately fake credentials belonging to the test suite"
+
+regexes = [
+  # The end-to-end signing secret and service token. They exist so Playwright
+  # can mint a cookie the middleware accepts without a backend running, and
+  # they are supplied to the test server in `frontend/playwright.config.ts`.
+  # A deployment that used either would be refusing every real request.
+  '''e2e-jwt-secret-0123456789abcdef01''',
+  '''e2e-service-token-0123456789abcdef''',
+
+  # The offline API fixtures in `tests/api_fixtures.py`. Long enough to satisfy
+  # the minimum-length refusal in `ApiSettings.validate`, and obviously not
+  # credentials — which is the point: the settings layer must reject a short
+  # secret, so a test needs a long one that is still plainly fake.
+  '''jwt-secret-for-tests-0123456789ab''',
+  '''service-token-for-tests-0123456789''',
+
+  # `tests/golden_states.py`: a synthetic provider error carrying a key-shaped
+  # string and an internal URL. It is the *evidence* for a safety property —
+  # `tests/test_service_golden.py` asserts this exact text never reaches a
+  # rendered failure — so the repository has to contain a plausible-looking
+  # secret in order to prove that secrets do not escape.
+  # Just the key-shaped literal: gitleaks matches an allowlist regex against
+  # the *extracted secret*, not the whole line, so the surrounding sentence
+  # cannot be part of the pattern.
+  '''sk-live-abc123''',
+]
