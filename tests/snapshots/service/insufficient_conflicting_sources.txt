@@ -1,0 +1,8 @@
+reason:      conflicting_sources
+reachable:   no
+
+Not enough verified information
+
+The sources Synapse found do not agree with each other, so it cannot summarise them safely. This is common where research is still developing.
+
+This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.

@@ -1,0 +1,34 @@
+{
+  "action": "medical_staff",
+  "brief_available": true,
+  "claims": [],
+  "disclaimer": "This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.",
+  "doctor_evaluation": "",
+  "excerpts": [],
+  "insufficient": null,
+  "kind": "answer",
+  "limitations": [],
+  "questions_for_doctor": [
+    "Can someone look at this before my appointment?"
+  ],
+  "resolved_query": "",
+  "sources": [
+    {
+      "number": 1,
+      "relevance": 0.91,
+      "source_id": "pubmed:41802233",
+      "title": "HbA1c Targets in Adults",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41802233/"
+    },
+    {
+      "number": 2,
+      "relevance": 0.74,
+      "source_id": "pubmed:41900001",
+      "title": "Routine Diabetes Review",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41900001/"
+    }
+  ],
+  "staff_message": "This is worth raising with a member of clinical staff before your appointment. Please let the front desk know.",
+  "summary": "",
+  "turn_index": 0
+}

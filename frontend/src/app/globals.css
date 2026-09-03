@@ -1,0 +1,317 @@
+@import "tailwindcss";
+
+/*
+ * The Synapse identity.
+ *
+ * Libre Baskerville against a clean sans, on a near-black ground with a single
+ * royal violet accent. The serif carries the name and the headings; the sans
+ * carries everything you operate. That contrast is the identity — not a colour, not a
+ * shadow.
+ *
+ * The ground is near-black, which is what lets the accent be a genuinely royal
+ * violet rather than a pale lilac. The arithmetic decided the split, not taste —
+ * on this ground #A78BFA carries text and #8B5CF6 does not, and both are the
+ * accents the previous Streamlit interface used on its own dark ground:
+ *
+ *     #C4B5FD   9.21:1  brightest gradient stop
+ *     #A78BFA   6.25:1  links, focus, accents        <- text-safe royal
+ *     #8B5CF6   4.02:1  borders and the mark         <- NON-TEXT only
+ *     #7E3FF2   3.14:1  filled controls, carrying WHITE ink at 5.41:1
+ *     #6D28D9   2.39:1  gradient stop only
+ *
+ * Every pairing below was measured with this repository's own
+ * `synapse.a11y.contrast` before it was written down, and
+ * `tests/unit/palette.test.ts` re-measures them on every run by reading this
+ * file rather than a copy of it.
+ *
+ * Deliberately absent, and staying absent: ambient streaks, stock photography
+ * of patients, seals, badges, shields, checkmarks. The last group is a safety
+ * decision — no clinician has reviewed any source in this system, and an
+ * interface that *looks* accredited makes a claim the system cannot support.
+ */
+
+@theme {
+  /* -- grounds -------------------------------------------------------- */
+  --color-canvas: #1d1c1c; /* The page behind everything */
+  --color-surface: #252424; /* Lifted: cards, the input, panels */
+  --color-sunken: #151414; /* Recessed: wells inside a surface */
+
+  /* -- ink ------------------------------------------------------------ */
+  --color-ink: #ffffff; /* Body and headings. 17.00:1 on canvas */
+  --color-ink-secondary: #c9c6cc; /* Supporting. 10.07:1 on canvas */
+  --color-display: #ffffff; /* The serif face */
+
+  /* -- accent: royal violet, from the Streamlit identity --------------- */
+  --color-accent: #a78bfa; /* Links, focus, accents. 6.25:1 — text-safe */
+  --color-accent-soft: #8b5cf6; /* Borders and the mark. NON-TEXT only */
+  --color-accent-royal: #7e3ff2; /* Filled controls, with WHITE ink at 5.41:1 */
+  --color-accent-wash: #2a2338; /* Violet-tinted lift for chips and hover */
+
+  /* -- lines ---------------------------------------------------------- */
+  --color-border: #736e73; /* Control boundaries. 3.41:1 canvas, 3.10:1 surface */
+  --color-rule: #3a3838; /* Dividers: decorative, not a control */
+
+  /* -- states --------------------------------------------------------- */
+  /* Emergency is the one state that may interrupt. Nothing else uses red. */
+  --color-emergency: #fca5a5;
+  --color-emergency-surface: #3a2222;
+  --color-warning: #fcd34d;
+  --color-warning-surface: #382e1c;
+
+  /* -- type ----------------------------------------------------------- */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-serif: var(--font-libre-baskerville), ui-serif, Georgia,
+    "Times New Roman", serif;
+
+  /* -- radii: 12-16px, nothing rounder ------------------------------- */
+  --radius-card: 16px;
+  --radius-control: 14px;
+  --radius-chip: 12px;
+
+  /* -- shadows -------------------------------------------------------- */
+  /*
+   * On a dark ground a drop shadow does almost nothing; elevation reads through
+   * the lighter surface colour instead. These stay for depth on the input and
+   * for the focus bloom, and are deliberately near-invisible elsewhere.
+   */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.18);
+  --shadow-input: 0 1px 2px rgb(0 0 0 / 0.2), 0 10px 30px rgb(0 0 0 / 0.22);
+  --shadow-raised: 0 2px 6px rgb(0 0 0 / 0.24), 0 14px 36px rgb(0 0 0 / 0.28);
+}
+
+@layer base {
+  :root {
+    /* Tells the browser to render form controls and scrollbars dark. */
+    color-scheme: dark;
+  }
+
+  html {
+    /* An in-page anchor must not land under a sticky header. */
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * One focus treatment for the whole application, defined once.
+   * 3px at 6.25:1 against the canvas; never removed, only moved.
+   */
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Long medical terms and identifiers must not force a horizontal scrollbar. */
+  p,
+  li,
+  dd,
+  dt {
+    overflow-wrap: anywhere;
+  }
+
+  /* Selection uses the filled-control violet, so it reads as the same accent. */
+  ::selection {
+    background-color: var(--color-accent-royal);
+    color: #ffffff;
+  }
+}
+
+@layer components {
+  /*
+   * The display face. Optical sizing, and a slightly tighter measure at large
+   * sizes because a serif set at 64px needs less letter-spacing than the same
+   * face at 18px.
+   */
+  .font-display {
+    font-family: var(--font-serif);
+    /*
+     * Libre Baskerville is wide and open by design, so it needs less negative
+     * tracking at display size than a narrower face would — and none of the
+     * optical-size axis a variable font would offer, because it has none.
+     */
+    letter-spacing: -0.012em;
+  }
+
+  /* The attribution: small caps, widely tracked, never competing with the name. */
+  .attribution {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-ink-secondary);
+  }
+}
+
+@layer utilities {
+  /*
+   * Visible to a screen reader, invisible on screen. Used for the skip link's
+   * resting state and for headings that structure a page without appearing.
+   */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .visually-hidden:focus-visible {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+}
+
+/*
+ * The mark's trace animation.
+ *
+ * The line draws itself once and then rests — iteration count exactly 1,
+ * `forwards`, no loop. A logo that keeps redrawing is a distraction in an
+ * interface someone uses while anxious.
+ *
+ * The dash values are 600 because the polyline declares `pathLength="600"`,
+ * which normalises the geometry: change the points and this still runs.
+ *
+ * Opacity ramps alongside the draw and reaches full at 72%, so the last
+ * quarter of the animation is the bright endpoint settling rather than the
+ * whole trace still fading in.
+ */
+@keyframes brandmark-draw {
+  0% {
+    opacity: 0.48;
+    stroke-dashoffset: 600;
+  }
+  72% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+.brandmark-trace {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation-name: brandmark-draw;
+  animation-duration: 1.2s;
+  animation-delay: 180ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+/*
+ * The wordmark types itself in.
+ *
+ * `clip-path` rather than an animated width: width cannot be animated to a
+ * text's intrinsic size without hard-coding it, and `clip-path` changes only
+ * what is painted — the element keeps its full box from the first frame, so
+ * nothing below it shifts while the name arrives.
+ *
+ * `steps(7)` for the seven letters of the name. The face is proportional, so
+ * the boundaries do not land exactly on glyph edges; at this size the eye reads
+ * the cadence, not the arithmetic.
+ *
+ * It shares the mark's 180ms delay, so the name and the trace begin on the same
+ * frame — one startup, not two events. The name finishes first by design: it
+ * lands, and the pulse is still drawing beneath it.
+ *
+ * There is deliberately NO blinking caret. A caret loops forever, and this
+ * interface has a strict motion budget: everything that moves, moves once.
+ */
+@keyframes brandmark-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.brandmark-type {
+  display: inline-block;
+  clip-path: inset(0 100% 0 0);
+  animation-name: brandmark-type;
+  animation-duration: 520ms;
+  animation-delay: 180ms;
+  animation-timing-function: steps(7, end);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+/*
+ * Motion is opt-out at the OS level. The duration collapses and the iteration
+ * count stays at one, so `forwards` lands the trace in its FINISHED state —
+ * a reduced-motion user sees a complete mark, glowing endpoint and all, not a
+ * half-drawn line.
+ */
+/*
+ * The "working" indicator on the stage timeline.
+ *
+ * A slow opacity pulse rather than a spinner: it signals activity without
+ * implying measurable progress, which a turn does not have — the stages are
+ * discrete and the last one can take most of the time. Reduced motion stops it
+ * at full opacity, where it still reads as the current stage.
+ */
+@keyframes stage-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.stage-pulse {
+  animation: stage-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brandmark-trace,
+  .brandmark-type {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+    animation-iteration-count: 1;
+  }
+
+  /* Belt and braces: the name is fully painted even if the animation is dropped. */
+  .brandmark-type {
+    clip-path: inset(0 0 0 0);
+  }
+
+  /*
+   * Switched off by name, not merely accelerated.
+   *
+   * The blanket rule below sets every animation to 0.01ms, which for a looping
+   * one means it restarts every 0.01ms — a flicker, which is precisely the
+   * thing prefers-reduced-motion exists to prevent, and a genuine seizure risk.
+   * So the indicator is stopped outright and held at full opacity, where it
+   * still marks the current stage.
+   */
+  .stage-pulse {
+    animation: none;
+    opacity: 1;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,8 @@
+reason:      failed_validation
+reachable:   no
+
+Not enough verified information
+
+Synapse found some research, but could not confirm that it supports a clear answer, so it has not shown one.
+
+This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.

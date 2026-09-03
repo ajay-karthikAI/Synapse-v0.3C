@@ -1,0 +1,8 @@
+reason:      out_of_scope
+reachable:   no
+
+Not enough verified information
+
+This question is outside the topics Synapse's reviewed sources cover.
+
+This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.

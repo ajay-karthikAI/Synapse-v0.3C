@@ -1,0 +1,51 @@
+{
+  "action": "answer",
+  "brief_available": true,
+  "claims": [
+    {
+      "claim_id": "c1",
+      "source_numbers": [
+        1
+      ],
+      "support": "partially_supported",
+      "text": "A target below 8% is appropriate for most adults."
+    }
+  ],
+  "disclaimer": "This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.",
+  "doctor_evaluation": "Your clinician will set a target with you.",
+  "excerpts": [
+    {
+      "chunk_id": "pubmed:41802233#0000",
+      "quote": "A target below 7%",
+      "source_number": 1
+    }
+  ],
+  "insufficient": null,
+  "kind": "answer",
+  "limitations": [
+    "Targets are individual."
+  ],
+  "questions_for_doctor": [
+    "What target is right for me?"
+  ],
+  "resolved_query": "",
+  "sources": [
+    {
+      "number": 1,
+      "relevance": 0.91,
+      "source_id": "pubmed:41802233",
+      "title": "HbA1c Targets in Adults",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41802233/"
+    },
+    {
+      "number": 2,
+      "relevance": 0.74,
+      "source_id": "pubmed:41900001",
+      "title": "Routine Diabetes Review",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41900001/"
+    }
+  ],
+  "staff_message": "",
+  "summary": "Targets vary between people.",
+  "turn_index": 0
+}

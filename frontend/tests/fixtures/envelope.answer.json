@@ -1,0 +1,65 @@
+{
+  "action": "answer",
+  "brief_available": true,
+  "claims": [
+    {
+      "claim_id": "c1",
+      "source_numbers": [
+        1
+      ],
+      "support": "supported",
+      "text": "HbA1c reflects average plasma glucose over 2-3 months."
+    },
+    {
+      "claim_id": "c2",
+      "source_numbers": [
+        2
+      ],
+      "support": "supported",
+      "text": "Regular review supports earlier detection of complications."
+    }
+  ],
+  "disclaimer": "This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.",
+  "doctor_evaluation": "Your clinician will read it alongside your history.",
+  "excerpts": [
+    {
+      "chunk_id": "pubmed:41802233#0000",
+      "quote": "HbA1c reflects average plasma glucose over 2-3 months",
+      "source_number": 1
+    },
+    {
+      "chunk_id": "pubmed:41900001#0000",
+      "quote": "Regular review supports earlier detection of complications",
+      "source_number": 2
+    }
+  ],
+  "insufficient": null,
+  "kind": "answer",
+  "limitations": [
+    "This is general information from published research, not advice about your own care."
+  ],
+  "questions_for_doctor": [
+    "What does my result mean for me specifically?",
+    "How often should this be rechecked?"
+  ],
+  "resolved_query": "",
+  "sources": [
+    {
+      "number": 1,
+      "relevance": 0.91,
+      "source_id": "pubmed:41802233",
+      "title": "HbA1c Targets in Adults",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41802233/"
+    },
+    {
+      "number": 2,
+      "relevance": 0.74,
+      "source_id": "pubmed:41900001",
+      "title": "Routine Diabetes Review",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41900001/"
+    }
+  ],
+  "staff_message": "",
+  "summary": "Your HbA1c reflects your average blood sugar over two to three months.",
+  "turn_index": 0
+}

@@ -30,6 +30,19 @@ configure_logging(os.getenv("SYNAPSE_LOG_LEVEL", "INFO"))
 from synapse.telemetry import TelemetryRecorder
 TELEMETRY = TelemetryRecorder.from_environment(app_version="0.1.0")
 
+# The application service. Everything this file used to do between "the patient
+# pressed send" and "there is a typed outcome to render" now lives in
+# synapse.service, which imports no interface framework and is exercised offline
+# against fakes. app.py supplies a progress reporter and renders the result.
+from synapse.service import (
+    STAGE_MESSAGES,
+    Conversation,
+    MissingCredentialError,
+    ProgressStage,
+    ServiceConfig,
+    SynapseService,
+)
+
 # Governed source metadata for the evidence cards. Loaded once; every field an
 # evidence card shows is copied from this pack, and a source the pack does not
 # describe renders as "no governance record" rather than with invented fields.
@@ -966,17 +979,53 @@ st.markdown("""
 # ---------------------------------------------------------------------------
 
 def init():
-    # `conversation` holds {"query": str, "outcome": synapse.ui.TurnOutcome}.
-    # The outcome is a typed object, not a dict of free text: nothing in this
-    # file may re-derive structure from prose.
-    for k, v in {
-        "conversation": [], "chunks_built": False, "chunks": [],
-        "hybrid": None, "api_key": os.getenv("OPENAI_API_KEY", ""),
-    }.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
+    # `conversation` is a synapse.service.Conversation: ordered ConversationTurn
+    # objects carrying a typed synapse.ui.TurnOutcome each, never dicts of free
+    # text. Nothing in this file may re-derive structure from prose.
+    #
+    # The corpus, the index and the API key are NOT here any more. The first two
+    # are cached inside the service's index provider, which has exactly the
+    # lifetime this session state had; the third is read from the process
+    # environment and never from the page.
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = Conversation()
 
 init()
+
+
+def _service():
+    """The application service for this session, built once.
+
+    Held in session state rather than in ``st.cache_resource`` so the index
+    cache keeps the lifetime it had before the extraction -- one session -- and
+    the change stays a refactor rather than a quiet behaviour change.
+
+    Raises:
+        MissingCredentialError: OPENAI_API_KEY is not set in the environment.
+            The caller renders the fixed failure copy with a typed code; it does
+            not offer anywhere to type a key, because the key is server-side.
+    """
+    existing = st.session_state.get("service")
+    if existing is not None:
+        return existing
+    # The index provider is passed in rather than built by the service, because
+    # synapse may not import the prototype's Data/ and Retrieval/ trees. This is
+    # the seam where the legacy stack is bound; see legacy_index.py.
+    from legacy_index import legacy_index_provider
+
+    config = ServiceConfig.from_environment()
+    config.require_credentials()
+    service = SynapseService.from_config(
+        config,
+        index=legacy_index_provider(
+            api_key=config.api_key,
+            chunks_path=config.chunks_path,
+            index_dir=config.index_dir,
+        ),
+        telemetry=TELEMETRY,
+    )
+    st.session_state.service = service
+    return service
 
 
 # ---------------------------------------------------------------------------
@@ -998,9 +1047,19 @@ with st.sidebar:
         "Synapse plays no sound. If your device is set to reduce motion, that is "
         "already respected without changing anything here."
     )
-    key_in = st.text_input("OpenAI API Key", type="password", placeholder="sk-...")
-    if key_in:
-        st.session_state.api_key = key_in
+    # The OpenAI key USED TO BE typed here, into a password field that stored it
+    # in session state. It is now read from the server's environment only.
+    #
+    # The field was removed rather than hidden. A credential entered into a page
+    # is held in the server process for the life of the session, is unscoped and
+    # unrotated, and in any deployment with more than one user would put each
+    # person's key into a shared process with no isolation between them
+    # (docs/PRIVACY_DATA_FLOW.md §3). Reading it from the environment makes the
+    # operator, not the patient, the only party who can supply it.
+    st.caption(
+        "Synapse uses a key configured by whoever runs it. There is nothing to "
+        "enter here."
+    )
     st.markdown("---")
     st.markdown("### 📊 Metrics")
     # Reads the most recent evaluation run's summary.json rather than computing
@@ -1171,9 +1230,9 @@ def render_turn(index, turn):
         return f'<div class="disclaimer-permanent">{escape(PERMANENT_DISCLAIMER)}</div>'
 
     # The patient's own words, escaped. Previously interpolated raw.
-    st.markdown(f'<div class="bubble-user">{escape(turn["query"])}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="bubble-user">{escape(turn.query)}</div>', unsafe_allow_html=True)
 
-    outcome = turn["outcome"]
+    outcome = turn.outcome
     # What the system took a follow-up to mean, shown ONLY when a rewrite
     # actually happened. Silence is the normal case: on a standalone question
     # there is nothing to disclose and a chip on every turn would become
@@ -1284,14 +1343,20 @@ def _render_brief_editor(index, turn, answer, numbering):
         # Built once per turn and kept in session memory only. Re-running the
         # build would issue a new document identifier on every interaction.
         if state_key not in st.session_state:
+            # The artifact stamps come off the service config, which is the same
+            # place telemetry reads its provenance from. They used to be read
+            # from two session-state keys nothing ever set, so a brief and a
+            # telemetry record could in principle have disagreed about which
+            # corpus produced them.
+            _svc = st.session_state.get("service")
             st.session_state[state_key] = build_brief(
                 answer,
                 numbering,
                 resolver=RESOLVER,
-                user=UserContent(topic=turn["query"].strip()[:200]),
+                user=UserContent(topic=turn.query.strip()[:200]),
                 app_version="0.1.0",
-                corpus_version=st.session_state.get("corpus_version", ""),
-                index_version=st.session_state.get("index_version", ""),
+                corpus_version=_svc.config.corpus_version if _svc else "",
+                index_version=_svc.config.index_version if _svc else "",
             )
         brief = st.session_state[state_key]
 
@@ -1396,11 +1461,11 @@ def _render_brief_editor(index, turn, answer, numbering):
 # Conversation
 # ---------------------------------------------------------------------------
 
-if st.session_state.conversation:
+if st.session_state.conversation.turns:
     st.markdown(
         '<h2 class="visually-hidden">Your questions and answers</h2>', unsafe_allow_html=True
     )
-    for _index, _turn in enumerate(st.session_state.conversation):
+    for _index, _turn in enumerate(st.session_state.conversation.turns):
         render_turn(_index, _turn)
         st.markdown('<hr class="turn-div">', unsafe_allow_html=True)
 else:
@@ -1524,11 +1589,6 @@ def run_with_progress(progress_bar, task, start, ceiling, label):
                 progress_bar.progress(value, text=label() if callable(label) else label)
 
 if submitted and query.strip():
-    if not st.session_state.api_key:
-        st.error("Add your OpenAI API key in the sidebar.")
-        st.stop()
-
-    api_key = st.session_state.api_key
     # Requirement 15: a polite live region for the loading state. It is polite,
     # not assertive: a progress update must not interrupt what the user is
     # reading. The emergency card carries role="alert" instead, which is the one
@@ -1539,334 +1599,68 @@ if submitted and query.strip():
         "Checking your question. This usually takes a few seconds.</div>",
         unsafe_allow_html=True,
     )
-    loading = st.progress(5, text="Checking your question...")
+    loading = st.progress(5, text=STAGE_MESSAGES[ProgressStage.CHECKING_QUESTION])
 
-    from synapse.answer.render import escape
-    from synapse.answer.providers import DEFAULT_MODEL, OpenAIStructuredClient
-    from synapse.answer.generate import PROMPT_ID as ANSWER_PROMPT_ID
-    from synapse.answer.schema import AnswerAction
-    from synapse.memory.query_rewrite import TurnSummary
-    from synapse.retrieval.rerank import PROMPT_ID as RERANK_PROMPT_ID
-    from synapse.safety import load_detector
-    from synapse.ui.pipeline import answer_turn
+    from synapse.answer.render import escape, render_failure_html
+    from synapse.ui.errors import PATIENT_ERROR_MESSAGE
 
-    # The prompt carries its own version, so a wording change is visible in
-    # telemetry even when the schema is unchanged.
-    SYNAPSE_PROMPT_VERSION = ANSWER_PROMPT_ID
+    # Built on the main thread, before anything reaches a worker.
+    try:
+        service = _service()
+    except MissingCredentialError:
+        # A deployment fault, rendered the way every other failure is: fixed
+        # application copy and a typed code. It deliberately does NOT say "add
+        # your API key" -- there is nowhere for a patient to add one, and
+        # telling them to would be an invitation to paste a credential into a
+        # page.
+        loading.empty()
+        status_slot.empty()
+        st.markdown(
+            render_failure_html(PATIENT_ERROR_MESSAGE, "configuration_error"),
+            unsafe_allow_html=True,
+        )
+        st.stop()
 
-    stage = {"label": "Checking your question..."}       # Read by the progress loop on the main thread
-    cached_chunks = st.session_state.chunks              # Read here, on the main thread, not inside the worker
-    cached_hybrid = st.session_state.hybrid
+    # Read here, on the main thread. The worker mutates this object; it never
+    # touches st.session_state, where there is no ScriptRunContext to read from.
+    conversation = st.session_state.conversation
 
-    # Source-pack governance, resolved here because it reads files and the
-    # retrieve closure runs on a worker.
+    # The progress reporter. It receives a ProgressEvent carrying a closed
+    # ProgressStage and reads the wording off synapse.service's fixed table:
+    # there is no parameter through which the query or the answer could reach a
+    # progress update, which is the property that makes it safe to display.
     #
-    # Returns the document ids retrieval may return, or None. None is NOT a
-    # neutral default: it means no governance is being enforced and every
-    # document in the index can reach a patient. search_candidates records that
-    # as eligibility_enforced=False rather than leaving it to be inferred from
-    # an absent argument, and the reason is logged here, because the failure
-    # this guards against is a pack quietly ceasing to constrain anything.
-    def _eligible_documents():
-        """(ids or None, reason). Never raises."""
-        try:
-            from datetime import date as _date
+    # It runs on the worker thread and only writes this dict. Every
+    # progress_bar call happens on the main thread, inside run_with_progress,
+    # which reads it.
+    stage = {"label": STAGE_MESSAGES[ProgressStage.CHECKING_QUESTION]}
 
-            from synapse.governance.eligibility import select_eligible
-            from synapse.governance.pack import SourcePack
+    def report(event):
+        stage["label"] = event.message
 
-            _pack = SourcePack.load(
-                Path(os.getenv("SYNAPSE_SOURCE_PACK", "source_packs/diabetes-previsit"))
-            )
-            _eligible, _ = select_eligible(_pack.sources, _pack.manifest, as_of=_date.today())
-            _ids = frozenset(source.document_id for source in _eligible)
-            if not _ids:
-                return None, "pack authorises no sources"
-            return _ids, f"{len(_ids)} approved source(s)"
-        except Exception as exc:
-            # An unapproved or unreadable pack authorises nothing. Serving
-            # UNFILTERED is the current behaviour and is kept so the app still
-            # works, but it is never silent: see the log line below and
-            # eligibility_enforced in the retrieval trace.
-            return None, f"not enforced ({type(exc).__name__})"
-
-    eligible_documents, eligibility_reason = _eligible_documents()
-    _app_logger = __import__("logging").getLogger("synapse.app")
-    _app_logger.info(
-        "retrieval governance resolved",
-        extra={
-            "eligibility_enforced": eligible_documents is not None,
-            "eligible_documents": len(eligible_documents) if eligible_documents else 0,
-            "reason": eligibility_reason,
-        },
-    )
-    built = {}                                           # Anything the worker builds, written back to session state below
-
-    # Conversation context for the RETRIEVAL query only, snapshotted here on the
-    # main thread for the same reason chunks and hybrid are: the retrieve closure
-    # runs on a worker with no ScriptRunContext, where st.session_state is not
-    # readable. The narrowing to two strings per turn is deliberate — no typed
-    # presentation object crosses into synapse.memory.
+    # One call. Every failure inside -- a detector fault, a retrieval error, an
+    # unreachable provider, a malformed generation -- comes back as a typed
+    # failure on the turn rather than as an exception or, worse, as unvalidated
+    # prose. The ordering that carries the safety properties lives in
+    # synapse.service and synapse.ui.pipeline, not here.
     #
-    # Excluded: failed turns (no answer at all) and emergency escalations, which
-    # are produced ahead of any retrieval and so carry no evidence context. The
-    # summary is read off the validated GroundedAnswer, never re-derived from
-    # rendered prose. This reads the conversation list; it never mutates it.
-    def _history_for_retrieval(limit=3):
-        """The last `limit` eligible turns, oldest first. Never raises."""
-        summaries = []
-        try:
-            for _t in st.session_state.conversation:
-                _outcome = _t.get("outcome")
-                if _outcome is None or not _outcome.ok:
-                    continue
-                _answer = _outcome.presentation.answer
-                if _answer.action is AnswerAction.EMERGENCY:
-                    continue
-                # An abstention's summary is fixed boilerplate, substituted by
-                # synapse.answer.policy.apply and identical for every abstained
-                # turn. It carries no context, and it states that the sources
-                # came up empty -- which is a fact about the corpus, not about
-                # what the patient is asking, and steers the rewrite wrong.
-                #
-                # The turn is kept rather than dropped: the patient's own
-                # question is the context that resolves a follow-up. After
-                # "what is metformin?" abstains, "what about the side effects?"
-                # still means metformin's.
-                _summary = "" if _answer.action is AnswerAction.ABSTAIN else _answer.summary
-                summaries.append(
-                    TurnSummary(query=_t.get("query", ""), answer_summary=_summary)
-                )
-        except Exception:
-            # Context is an optimisation. A malformed turn degrades retrieval
-            # quality; it must never stop the patient getting an answer.
-            return []
-        return summaries[-limit:]
-
-    history = _history_for_retrieval()
-
-    # Safety state, kept SEPARATE from the retrieval history above, which
-    # deliberately excludes escalations. A red flag latches: a patient who
-    # described crushing chest pain and then asked "is that serious?" was
-    # escalated once and then answered normally, because the follow-up carries
-    # no emergency vocabulary of its own for the detector to fire on.
-    #
-    # Bounded to the same window as the retrieval history, so the latch releases
-    # after that many non-escalated turns rather than ending the session.
-    def _recent_escalation(limit=3):
-        """True if any of the last `limit` turns escalated. Never raises."""
-        try:
-            recent = list(st.session_state.conversation)[-limit:]
-            return any(
-                _t.get("outcome") is not None
-                and _t["outcome"].ok
-                and _t["outcome"].presentation.answer.action is AnswerAction.EMERGENCY
-                for _t in recent
-            )
-        except Exception:
-            # Fail CLOSED. Unlike the retrieval history, where a fault costs
-            # quality, a fault here costs a red flag -- so an unreadable
-            # conversation escalates rather than staying silent.
-            return True
-
-    recent_escalation = _recent_escalation()
-
-    def retrieve(user_query):
-        """Retrieve a bounded candidate set and rerank it in one request.
-
-        Runs on a worker thread, so it touches neither st.session_state nor any
-        Streamlit call — it reports progress by setting `stage["label"]`, which
-        the main thread reads.
-
-        The ordering and the limits live in synapse.retrieval, not here. This
-        function loads the index, wraps it in the two backend adapters, and
-        hands over. It returns a typed RetrievalBundle, so no identifier is
-        derived, repaired or dropped anywhere downstream.
-        """
-        from synapse.answer.providers import OpenAIStructuredClient
-        from synapse.memory.query_rewrite import rewrite_query
-        from synapse.retrieval import (
-            DEFAULT_CANDIDATE_CONFIG,
-            DEFAULT_RERANK_CONFIG,
-            bundle_from_candidates,
-            rerank_candidates,
-            search_candidates,
-        )
-        from synapse.retrieval.production import LegacyDenseBackend, LegacySparseBackend
-
-        chunks = cached_chunks
-        hybrid = cached_hybrid
-
-        if not chunks:
-            stage["label"] = "Loading the medical research index..."
-            from Data.fetch_and_chunk import load_chunks
-            chunks = load_chunks("processed_chunks.pkl")
-            built["chunks"] = chunks
-
-        if hybrid is None:
-            stage["label"] = "Checking the research index..."
-            # Fail closed BEFORE any retrieval: an index whose contents do not
-            # match its manifest cannot be served from, because a citation would
-            # then point at a different document than the one that was read. The
-            # exception propagates to answer_turn, which renders a failure card
-            # and generates nothing at all.
-            from synapse.retrieval.index_gate import check_index
-            built["index_gate"] = check_index(Path("hybrid_index"))
-
-            stage["label"] = "Opening the research index..."
-            from Retrieval.hybrid_retriever import HybridRetriever
-            try:
-                hybrid = HybridRetriever.load("hybrid_index", fusion="linear", alpha=0.7)
-            except (OSError, ValueError, RuntimeError):
-                # No prebuilt index on disk, or an unreadable one. RuntimeError
-                # is included because that is what FAISS raises for a missing
-                # index file. Anything else propagates to answer_turn, which
-                # turns it into a typed retrieval_failed outcome.
-                stage["label"] = "Preparing the medical research index..."
-                hybrid = HybridRetriever(fusion="linear", alpha=0.7)
-                hybrid.build(chunks, api_key=api_key)
-            built["hybrid"] = hybrid
-
-        # Resolve a context-dependent follow-up ("what about the side effects?")
-        # into a standalone query, so BM25 and FAISS see the whole question
-        # rather than six context-free words.
-        #
-        # RETRIEVAL ONLY. The rewritten string never leaves this closure:
-        # answer_turn passes its own `query` to generation, so the patient's raw
-        # words are what reach build_user_prompt and what every claim is verified
-        # against. Nothing about the generation contract changes, which is why
-        # generate.PROMPT_ID does not move.
-        #
-        # Fails open on every path, like rerank below: was_rewritten False means
-        # retrieval_query IS user_query and behaviour is identical to before.
-        # The model and timeout are the rerank config's, not the answer model's:
-        # this is a cheap bounded rewrite on the patient's critical path.
-        stage["label"] = "Understanding your question..."
-        try:
-            retrieval_query, was_rewritten = rewrite_query(
-                user_query,
-                history,
-                OpenAIStructuredClient(
-                    api_key=api_key,
-                    model=DEFAULT_RERANK_CONFIG.model,
-                    timeout=DEFAULT_RERANK_CONFIG.read_timeout,
-                ),
-            )
-        except Exception:
-            # Belt and braces. rewrite_query catches everything internally and is
-            # tested for it, so this should be unreachable — but it runs inside
-            # the closure answer_turn wraps in its own retrieval try/except, and
-            # there an escaping exception becomes a retrieval_failed card. That
-            # would cost the patient the whole turn to save them a query rewrite.
-            # Degrade to the raw query instead, which is the pre-rewrite
-            # behaviour and always a valid thing to search for.
-            retrieval_query, was_rewritten = user_query, False
-
-        stage["label"] = "Searching relevant research..."
-        # Bounded on both sides. Neither count is derived from the corpus size:
-        # the previous implementation asked FAISS for top_k=len(chunks) and BM25
-        # for a score per chunk, on every query.
-        retrieval = search_candidates(
-            retrieval_query,
-            dense=LegacyDenseBackend(hybrid.vector_store, api_key),
-            sparse=LegacySparseBackend(hybrid.bm25_index),
-            config=DEFAULT_CANDIDATE_CONFIG,
-            eligible_documents=eligible_documents,
-        )
-
-        stage["label"] = "Ranking the strongest evidence..."
-        # ONE request for the whole candidate set, with its own timeouts,
-        # deadline and bounded retries. On failure this returns the fused
-        # retrieval order unchanged rather than raising: a ranking that could
-        # not be improved is still a usable ranking, and every claim built on it
-        # is still verified by the answer layer.
-        outcome = rerank_candidates(
-            retrieval_query,
-            retrieval.candidates,
-            OpenAIStructuredClient(
-                api_key=api_key,
-                model=DEFAULT_RERANK_CONFIG.model,
-                timeout=DEFAULT_RERANK_CONFIG.read_timeout,
-            ),
-            DEFAULT_RERANK_CONFIG,
-        )
-
-        stage["label"] = "Preparing your answer..."
-        # A BOOLEAN, and nothing else. Neither the original nor the rewritten
-        # query, nor any substring of either, is recorded anywhere: a rewritten
-        # query is still the patient's question (app.py header, and
-        # docs/privacy-logging-policy.md). Carried in the bundle metadata because
-        # provenance is built before answer_turn runs, when this is not yet
-        # known; pipeline.py emits every non-dict metadata value as
-        # retrieval_query_rewritten.
-        # The resolved query is nested inside a dict ON PURPOSE. answer_turn's
-        # "turn rendered" log line spreads every NON-dict metadata value into
-        # its extra={}, so a bare string here would put the patient's question
-        # into the logs -- the one thing the telemetry policy forbids. Nested,
-        # it is skipped by that comprehension and ignored by
-        # _record_retrieval_shape, while still reaching the renderer through
-        # AnswerPresentation.conversion. The boolean stays flat, because a
-        # boolean is exactly what telemetry is allowed to keep.
-        return bundle_from_candidates(
-            outcome.candidates,
-            metadata={
-                "retrieval": retrieval.trace.as_metadata(),
-                "rerank": outcome.as_metadata(),
-                "query_rewritten": was_rewritten,
-                # Flat so it reaches the "turn rendered" log line; the nested
-                # retrieval trace carries the same fact as eligibility_enforced.
-                "governed": eligible_documents is not None,
-                "rewrite": {"resolved_query": retrieval_query if was_rewritten else ""},
-            },
-        )
-
-    # One call. Every failure inside — a detector fault, a retrieval error, an
-    # unreachable provider, a malformed generation — comes back as a typed
-    # failure rather than an exception or, worse, unvalidated prose.
-    outcome = run_with_progress(
+    # The service appends the turn to the conversation itself, because the
+    # emergency latch reads that list: a caller that forgot to record a turn
+    # would silently release a latched red flag.
+    turn = run_with_progress(
         loading,
-        lambda: answer_turn(
-            query,
-            retrieve=retrieve,
-            client=OpenAIStructuredClient(api_key=api_key),
-            is_emergency=load_detector().is_emergency,
-            # Prior patient QUESTIONS only, off the same main-thread snapshot the
-            # retrieval rewrite uses. Not the prior answers: an answer summary is
-            # not in the passages, so a model quoting one would cite evidence
-            # that was never retrieved and lose the claim.
-            #
-            # This does not reach is_emergency, which still sees the raw query
-            # alone, and it does not reach retrieve.
-            history=[_t.query for _t in history],
-            recent_escalation=recent_escalation,
-            telemetry=TELEMETRY,
-            provenance={
-                "provider": "openai",
-                "model": DEFAULT_MODEL,
-                "prompt_version": SYNAPSE_PROMPT_VERSION,
-                "rerank_prompt_version": RERANK_PROMPT_ID,
-                "corpus_version": st.session_state.get("corpus_version", ""),
-                "index_version": st.session_state.get("index_version", ""),
-            },
-        ),
+        lambda: service.ask(query, conversation, report=report),
         0.10,
         0.96,
         lambda: stage["label"],
     )
 
-    # Session state is written on the main thread only.
-    if "chunks" in built:
-        st.session_state.chunks = built["chunks"]
-        st.session_state.chunks_built = True
-    if "hybrid" in built:
-        st.session_state.hybrid = built["hybrid"]
-
     # Announce the outcome once, politely, in plain language (requirement 23).
-    if outcome.ok:
-        loading.progress(100, text="Answer ready")
+    if turn.answered:
+        loading.progress(100, text=STAGE_MESSAGES[ProgressStage.ANSWER_READY])
         announcement = "Your answer is ready below."
     else:
-        loading.progress(100, text="No answer available")
+        loading.progress(100, text=STAGE_MESSAGES[ProgressStage.NO_ANSWER])
         announcement = (
             "Synapse could not prepare an answer. There is an explanation below."
         )
@@ -1875,5 +1669,4 @@ if submitted and query.strip():
         unsafe_allow_html=True,
     )
 
-    st.session_state.conversation.append({"query": query, "outcome": outcome})
     st.rerun()

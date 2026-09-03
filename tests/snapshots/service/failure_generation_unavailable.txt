@@ -1,0 +1,9 @@
+query:          what does my HbA1c number actually mean?
+outcome:        failure
+failure_code:   generation_unavailable
+patient_card:   failure
+brief:          not eligible
+
+Something went wrong while preparing your answer, so it has not been shown. Nothing here is a substitute for speaking to a member of staff — if you need help now, please tell the front desk.
+
+Reference code: generation_unavailable

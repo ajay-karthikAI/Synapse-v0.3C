@@ -1,0 +1,8 @@
+reason:      below_threshold
+reachable:   yes
+
+Not enough verified information
+
+Synapse found only partial support for an answer. Rather than give you something incomplete, it has not answered.
+
+This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.

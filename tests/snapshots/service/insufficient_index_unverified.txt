@@ -1,0 +1,8 @@
+reason:      index_unverified
+reachable:   yes
+
+Not enough verified information
+
+Synapse could not confirm its research library was intact, so it has not used it. This is a problem with the tool, not with your question.
+
+This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.

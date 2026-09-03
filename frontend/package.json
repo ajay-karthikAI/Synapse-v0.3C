@@ -1,0 +1,51 @@
+{
+  "name": "synapse-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Patient-facing interface for Synapse. Pre-clinical prototype; not a medical device.",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "gen:api": "openapi-typescript ../tests/snapshots/api/openapi.json -o src/types/api.d.ts",
+    "verify:api": "node scripts/verify-api-types.mjs",
+    "gates": "npm run lint && npm run typecheck && npm run verify:api && npm run test && npm run build"
+  },
+  "dependencies": {
+    "geist": "1.7.2",
+    "jose": "6.2.10",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.1.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "axe-core": "4.13.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.4",
+    "jsdom": "30.0.1",
+    "openapi-typescript": "7.13.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

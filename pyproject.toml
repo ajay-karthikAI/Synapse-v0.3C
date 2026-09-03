@@ -60,6 +60,19 @@ index = [                                               # Optional extra: only n
   "faiss-cpu>=1.8",                                     # Imported lazily so the core package stays install-light
   "numpy>=1.26",                                        # FAISS's array dependency
 ]
+api = [                                                 # Optional extra: the HTTP surface. Offline and testable without the runtime extra.
+  "fastapi>=0.115",                                     # Routing, dependency injection, OpenAPI generation
+  "pydantic>=2.7,<3",                                   # Already the core dependency; restated because the API layer is built on it
+  "pyjwt>=2.9",                                         # HS256 access tokens. NOT hand-rolled: algorithm confusion is the classic JWT defect
+  "httpx>=0.27",                                        # Required by fastapi.testclient; no network is ever contacted
+]
+runtime = [                                             # Optional extra: the DEPLOYED container, which serves from a verified artifact
+  "faiss-cpu>=1.8",                                     # Native dense backend; replaces the legacy VectorStore
+  "numpy>=1.26",                                        # Query vectors for FAISS
+  "rank-bm25>=0.2.2",                                   # Native sparse backend; state is REBUILT at startup, never unpickled
+  "boto3>=1.34",                                        # S3-compatible artifact download. Credentials come from the environment, never from code.
+  "openai>=2.0",                                        # Query embeddings for the dense backend
+]
 
 [project.scripts]                                       # Console entry points created on install
 synapse-migrate-artifacts = "synapse.cli.migrate_artifacts:main"   # Convenience alias for `python -m synapse.cli.migrate_artifacts`
@@ -162,5 +175,5 @@ exclude = "(^|/)(Data|Retrieval|Generation|Evaluation|\\.venv)/"
 # when present without stubs), so an inline comment is correct in one
 # environment and flagged as unused in the other.
 [[tool.mypy.overrides]]
-module = ["faiss.*", "openai.*", "numpy.*", "streamlit.*", "playwright.*", "axe_core_python.*"]
+module = ["faiss.*", "openai.*", "numpy.*", "streamlit.*", "playwright.*", "axe_core_python.*", "boto3.*", "rank_bm25.*"]
 ignore_missing_imports = true

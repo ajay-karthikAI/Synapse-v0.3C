@@ -1,0 +1,30 @@
+query:          what does my HbA1c number actually mean?
+outcome:        answer
+action:         abstain
+brief:          eligible
+rewrite:        (none)
+claims_shown:   0
+claims_withheld:1
+sources:        2
+
+--- what the patient sees ----------------------------------------------
+I could not find enough reliable information in my sources to answer this safely.
+
+Questions to ask your doctor:
+  - What does my result mean for me specifically?
+  - How often should this be rechecked?
+
+Limitations:
+  - The sources available to me do not contain enough supporting evidence for a clear answer to your question. Rather than give you something that might be wrong, I have not answered it. The questions listed for your appointment are still worth asking.
+
+Sources:
+  [1] HbA1c Targets in Adults (pubmed:41802233)
+  [2] Routine Diabetes Review (pubmed:41900001)
+
+This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.
+
+--- sources ------------------------------------------------------------
+[1] HbA1c Targets in Adults (pubmed:41802233)  relevance=0.91
+    https://pubmed.ncbi.nlm.nih.gov/41802233/
+[2] Routine Diabetes Review (pubmed:41900001)  relevance=0.74
+    https://pubmed.ncbi.nlm.nih.gov/41900001/

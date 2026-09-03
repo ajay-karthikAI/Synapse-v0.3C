@@ -1,0 +1,8 @@
+reason:      no_eligible_evidence
+reachable:   yes
+
+Not enough verified information
+
+Synapse could not find research in its sources that answers this question.
+
+This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.

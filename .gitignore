@@ -45,3 +45,27 @@ output/pdf/synapse_master_study_guide.pdf
 # Local telemetry sink — development only, never committed.
 # See docs/privacy-logging-policy.md §6 for retention and deletion.
 artifacts/telemetry/
+
+# ---------------------------------------------------------------------------
+# Added with the runtime artifact layer (see docs/runtime-artifacts.md)
+# ---------------------------------------------------------------------------
+
+# Runtime archives. BUILD OUTPUT, reproducible from a verified artifact
+# directory by `python -m synapse.cli.package_runtime`, and tens of megabytes.
+# They are distributed through object storage, never through git.
+synapse-runtime-*.tar.gz
+*.tar.gz
+
+# The local artifact cache, when SYNAPSE_ARTIFACT_CACHE points inside the
+# checkout instead of at the container's persistent disk.
+.synapse-cache/
+
+# The legacy hybrid index: three pickles, a FAISS index and an embedding
+# matrix, ~29MB, regenerated from the corpus by the prototype's build step.
+# Generated output, and `bm25.pkl` / `chunks.pkl` are exactly the pickle files
+# the repository refuses to distribute — see tests/test_no_pickle_and_imports.py
+# for why nothing in `synapse/` is allowed to load one.
+hybrid_index/
+
+# macOS Finder metadata. Not content, and it appears in every directory.
+.DS_Store

@@ -1,0 +1,48 @@
+{
+  "action": "abstain",
+  "brief_available": true,
+  "claims": [],
+  "disclaimer": "This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.",
+  "doctor_evaluation": "",
+  "excerpts": [],
+  "insufficient": {
+    "heading": "Not enough verified information",
+    "message": "Synapse found only partial support for an answer. Rather than give you something incomplete, it has not answered.",
+    "next_steps": [
+      "Write your question down as you would say it, and bring it to your appointment.",
+      "Tell your clinician what you have noticed and when it started.",
+      "Ask what they think is worth checking, and what would change their answer.",
+      "If something feels urgent before then, contact your clinic or local urgent care service."
+    ],
+    "not_a_judgement": "This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.",
+    "reason": "below_threshold"
+  },
+  "kind": "answer",
+  "limitations": [
+    "The sources available to me do not contain enough supporting evidence for a clear answer to your question. Rather than give you something that might be wrong, I have not answered it. The questions listed for your appointment are still worth asking."
+  ],
+  "questions_for_doctor": [
+    "What does my result mean for me specifically?",
+    "How often should this be rechecked?"
+  ],
+  "resolved_query": "",
+  "sources": [
+    {
+      "number": 1,
+      "relevance": 0.91,
+      "source_id": "pubmed:41802233",
+      "title": "HbA1c Targets in Adults",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41802233/"
+    },
+    {
+      "number": 2,
+      "relevance": 0.74,
+      "source_id": "pubmed:41900001",
+      "title": "Routine Diabetes Review",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41900001/"
+    }
+  ],
+  "staff_message": "",
+  "summary": "I could not find enough reliable information in my sources to answer this safely.",
+  "turn_index": 0
+}

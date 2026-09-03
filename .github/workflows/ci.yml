@@ -52,7 +52,7 @@ jobs:
           # pin produces a new cache rather than restoring a stale environment.
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
       - name: ruff check
         run: ruff check .
 
@@ -68,7 +68,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
       - name: ruff format --check
         # Scoped to code. Markdown docs contain python fences that ruff would
         # also reformat, which is not what this gate is for.
@@ -86,11 +86,11 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
       - name: mypy
         # Scoped to the layers that are fully annotated. Widening the scope is a
         # deliberate act, not something that happens by a file being added.
-        run: mypy synapse/schemas synapse/evals synapse/answer synapse/corpus synapse/index synapse/ui synapse/retrieval synapse/bench synapse/telemetry synapse/evidence synapse/brief synapse/a11y
+        run: mypy synapse/schemas synapse/evals synapse/answer synapse/corpus synapse/index synapse/ui synapse/service synapse/runtime synapse/api synapse/retrieval synapse/bench synapse/telemetry synapse/evidence synapse/brief synapse/a11y
 
   # -------------------------------------------------------------------------
   unit-tests:
@@ -104,7 +104,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
       - name: Assert no API credentials are present
         # Requirement 6, enforced rather than assumed. If a key is ever exposed
         # to this workflow the job fails instead of quietly spending money.
@@ -139,7 +139,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
       - name: Migration, ingestion, governance and harness integration
         # These exercise whole pipelines against committed fixtures: the
         # restricted pickle reader, the PubMed XML parser, source-pack
@@ -154,6 +154,12 @@ jobs:
             tests/test_evalset_workflows.py \
             tests/test_answer_snapshots.py \
             tests/test_ui_pipeline.py \
+            tests/test_service.py \
+            tests/test_service_golden.py \
+            tests/test_runtime_artifacts.py \
+            tests/test_runtime_backends.py \
+            tests/test_api.py \
+            tests/test_api_openapi.py \
             tests/test_retrieval_pipeline.py \
             tests/test_retrieval_benchmark.py \
             tests/test_telemetry_privacy.py \
@@ -176,7 +182,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
       - name: Validate the example source pack
         # Digest mismatch, expired approval, unreviewed-approval claims: all
         # blocking. Exit code is non-zero on any error-severity finding.
@@ -211,7 +217,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
       - name: Run the offline evaluation
         # --offline replays committed system responses. No model is called, no
         # network is touched, and the run reproduces byte-for-byte.
@@ -245,13 +251,62 @@ jobs:
             artifacts/evals/candidate/gate_report.json
           retention-days: 30
 
+
+  # -------------------------------------------------------------------------
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903  # v6.0.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # `npm ci` rather than `npm install`: it installs exactly the committed
+      # lockfile and fails if package.json and the lock have diverged.
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      # The generated client types must match the committed OpenAPI contract,
+      # which the Python suite pins. A backend contract change fails here
+      # rather than at runtime.
+      - name: Verify generated API types
+        run: npm run verify:api
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+        env:
+          # Build-time placeholders. No secret is baked into the bundle: these
+          # are read at request time on the server, and the build only needs
+          # them to exist.
+          SYNAPSE_SERVICE_TOKEN: ci-build-placeholder-0123456789ab
+          SYNAPSE_JWT_SECRET: ci-build-placeholder-0123456789ab
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end and accessibility
+        run: npx playwright test --project=chromium
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
   # -------------------------------------------------------------------------
   ci-passed:
     # Single required status check for branch protection. Adding a job above
     # does not require a branch-protection change; it just has to be listed here.
     name: CI passed
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, unit-tests, integration-tests, artifact-validation, offline-evaluation]
+    needs: [lint, format, typecheck, unit-tests, integration-tests, artifact-validation, offline-evaluation, frontend]
     if: always()
     steps:
       - name: Verify every required job succeeded
