@@ -123,6 +123,92 @@ describe("asking a question", () => {
   });
 });
 
+describe("the conversation continues after an answer", () => {
+  it("keeps a usable question box, and asks a second turn through it", async () => {
+    const fetchMock = route({
+      "GET v1/session": SESSION_EMPTY,
+      "POST v1/turns/stream": () => sse(frame("envelope", envelope("answer"))),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<Conversation examples={EXAMPLES} />);
+
+    await ask(user, "what does my HbA1c mean?");
+    await screen.findByRole("heading", { name: /what the research says/i });
+
+    // The box is still there, empty and enabled, and it now presents itself as
+    // a continuation rather than a beginning.
+    const field = screen.getByLabelText(/your question or symptoms/i);
+    expect(field).toBeEnabled();
+    expect(field).toHaveValue("");
+    expect(screen.getByRole("heading", { name: /ask a follow-up/i })).toBeInTheDocument();
+
+    await ask(user, "what about the side effects?");
+
+    await waitFor(() => {
+      const turnCalls = fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("turns/stream"),
+      );
+      expect(turnCalls).toHaveLength(2);
+    });
+    // Both questions are on the page: a conversation, not a replacement.
+    expect(screen.getByText("what does my HbA1c mean?")).toBeInTheDocument();
+    expect(screen.getByText("what about the side effects?")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: /what the research says/i })).toHaveLength(2);
+  });
+
+  it("sends the follow-up under a NEW request id, so it is not replayed as the first", async () => {
+    const sent: { query: string; client_request_id: string }[] = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).includes("turns/stream")) return Promise.resolve(SESSION_EMPTY());
+      sent.push(JSON.parse(String(init?.body)));
+      return Promise.resolve(sse(frame("envelope", envelope("answer"))));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<Conversation examples={EXAMPLES} />);
+
+    await ask(user, "first question");
+    await screen.findByRole("heading", { name: /what the research says/i });
+    await ask(user, "second question");
+    await waitFor(() => expect(sent).toHaveLength(2));
+
+    const [first, second] = sent as [(typeof sent)[number], (typeof sent)[number]];
+    // A retry replays; a follow-up must not. Sharing the id would make the
+    // server return the FIRST answer to the second question.
+    expect(first.client_request_id).not.toBe(second.client_request_id);
+    expect(second.query).toBe("second question");
+  });
+
+  it("has exactly one question field at every stage", async () => {
+    vi.stubGlobal(
+      "fetch",
+      route({
+        "GET v1/session": SESSION_EMPTY,
+        "POST v1/turns/stream": () => sse(frame("envelope", envelope("answer"))),
+      }),
+    );
+    const user = userEvent.setup();
+    const { container } = render(<Conversation examples={EXAMPLES} />);
+
+    expect(screen.getAllByLabelText(/your question or symptoms/i)).toHaveLength(1);
+    await ask(user, "q");
+    await screen.findByRole("heading", { name: /what the research says/i });
+
+    // Two would mean two elements sharing id="question", and a screen reader
+    // could not tell which box it was in.
+    expect(screen.getAllByLabelText(/your question or symptoms/i)).toHaveLength(1);
+    expect(container.querySelectorAll("#question")).toHaveLength(1);
+  });
+
+  it("does not offer the follow-up framing before anything has been answered", () => {
+    render(<Conversation examples={EXAMPLES} />);
+    expect(screen.queryByRole("heading", { name: /ask a follow-up/i })).toBeNull();
+    // The examples are the invitation at this stage.
+    expect(screen.getByRole("button", { name: EXAMPLES[0] })).toBeInTheDocument();
+  });
+});
+
 describe("duplicate submission is impossible", () => {
   it("disables the field and the button while a turn runs", async () => {
     let release!: () => void;

@@ -69,7 +69,7 @@ vocabulary, with negation scoping.
 **What remains a limitation — and it is the important part:**
 
 1. **The vocabulary is engineering-authored and unreviewed.**
-   `config/emergency_vocabulary.toml` carries `review_status = "unreviewed"` and
+   `synapse/safety/emergency_vocabulary.toml` carries `review_status = "unreviewed"` and
    an empty `reviewed_by`, and the loader refuses to report it as approved while
    that is true. Better recall on cases written by the same person who wrote the
    detector is **not clinical evidence**. Coverage against the set of conditions

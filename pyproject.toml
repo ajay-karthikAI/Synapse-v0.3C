@@ -51,6 +51,7 @@ dev = [                                                 # Development-only tooli
   "ruff>=0.6",                                          # Linter + formatter (replaces flake8/isort/black in one tool)
   "mypy>=1.11",                                         # Static type checking; scoped in CI to the fully-annotated layers
   "pip-audit>=2.7",                                     # Dependency vulnerability scanning, runnable locally as well as in CI
+  "pyyaml>=6.0",                                        # Parses render.yaml in tests/test_deployment_config.py. DECLARED rather than relied on transitively: without it those tests would skip, and a deployment blueprint that nobody checks is worse than none.
 ]
 a11y = [                                                # Browser-based accessibility checks; the offline checks need none of this
   "playwright>=1.40",                                   # Drives the installed Chrome channel, so no browser download is required
@@ -66,12 +67,26 @@ api = [                                                 # Optional extra: the HT
   "pyjwt>=2.9",                                         # HS256 access tokens. NOT hand-rolled: algorithm confusion is the classic JWT defect
   "httpx>=0.27",                                        # Required by fastapi.testclient; no network is ever contacted
 ]
+streamlit = [                                           # Optional extra: the LOCAL FALLBACK interface. NOT installed in the container.
+  # Next.js over the FastAPI contract is the primary interface (docs/frontend.md).
+  # Streamlit is a supported local fallback over the SAME framework-neutral
+  # `synapse.service`, so it carries no retrieval and no safety logic of its own
+  # -- `tests/test_streamlit_fallback.py` fails the build if that stops being true.
+  #
+  # Deliberately NOT a dependency of `api` or `runtime`, and vice versa: the
+  # deployed image must not ship a second web framework, and `serve_api.py` must
+  # stay importable without Streamlit installed. Compose it with the retrieval
+  # stack when running locally: `pip install -e ".[streamlit,runtime,dev]"`.
+  "streamlit>=1.56",                                    # The fallback UI shell only; every decision it renders comes from synapse.service
+  "python-dotenv>=1.2",                                 # Loads OPENAI_API_KEY from a local .env; the container uses real environment variables
+]
 runtime = [                                             # Optional extra: the DEPLOYED container, which serves from a verified artifact
   "faiss-cpu>=1.8",                                     # Native dense backend; replaces the legacy VectorStore
   "numpy>=1.26",                                        # Query vectors for FAISS
   "rank-bm25>=0.2.2",                                   # Native sparse backend; state is REBUILT at startup, never unpickled
   "boto3>=1.34",                                        # S3-compatible artifact download. Credentials come from the environment, never from code.
   "openai>=2.0",                                        # Query embeddings for the dense backend
+  "uvicorn[standard]>=0.30",                            # The ASGI server the container runs. Declared HERE, not in `api`: `api` is the importable HTTP surface that tests exercise through fastapi.testclient with no server at all, and the Dockerfile must not be the only place a runtime dependency is named.
 ]
 
 [project.scripts]                                       # Console entry points created on install
@@ -84,6 +99,16 @@ synapse-migrate-artifacts = "synapse.cli.migrate_artifacts:main"   # Convenience
 [tool.setuptools.packages.find]
 include = ["synapse*"]                                  # ONLY ship the new package — the legacy Data/Retrieval/Generation/Evaluation trees are untouched and unpackaged
 namespaces = false                                      # Require a real __init__.py in every package; prevents accidental namespace-package resolution
+
+[tool.setuptools.package-data]
+# The emergency vocabulary travels WITH the code. It used to live at the
+# repository's `config/`, resolved relative to the source tree, which meant an
+# installed wheel could not find it and the detector raised on load — and since
+# the emergency check runs before retrieval and generation, that made the whole
+# turn path unavailable. Shipping it as package data removes the dependency on
+# how the package was installed. tests/test_container_contract.py asserts it is
+# present in a built wheel.
+synapse = ["safety/emergency_vocabulary.toml"]
 
 # -------------------------------------------------------------------------
 # Ruff — lint + format

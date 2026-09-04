@@ -13,7 +13,7 @@ That code sat in the legacy tree, excluded from lint, type-checking and the test
 suite: the only code a patient's query touched was the least-checked code in the
 repository. It lives here now so it is typed, linted, tested and reviewable.
 
-Nothing here is clinically validated. See ``config/emergency_vocabulary.toml``.
+Nothing here is clinically validated. See ``synapse/safety/emergency_vocabulary.toml``.
 """
 
 from synapse.safety.detector import (  # Re-exported so callers need one import

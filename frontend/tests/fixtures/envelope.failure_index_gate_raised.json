@@ -1,7 +1,18 @@
 {
   "brief_available": false,
-  "code": "retrieval_failed",
-  "kind": "failure",
-  "message": "Something went wrong while preparing your answer, so it has not been shown. Nothing here is a substitute for speaking to a member of staff — if you need help now, please tell the front desk.",
+  "detail": {
+    "heading": "Not enough verified information",
+    "message": "Synapse could not confirm its research library was intact, so it has not used it. This is a problem with the tool, not with your question.",
+    "next_steps": [
+      "Write your question down as you would say it, and bring it to your appointment.",
+      "Tell your clinician what you have noticed and when it started.",
+      "Ask what they think is worth checking, and what would change their answer.",
+      "If something feels urgent before then, contact your clinic or local urgent care service."
+    ],
+    "not_a_judgement": "This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.",
+    "reason": "index_unverified"
+  },
+  "disclaimer": "This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.",
+  "kind": "insufficient",
   "turn_index": 0
 }

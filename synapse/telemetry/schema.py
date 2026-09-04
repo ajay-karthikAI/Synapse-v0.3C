@@ -44,6 +44,11 @@ class Environment(StrEnum):
     LOCAL = "local"
     TEST = "test"
     STAGING = "staging"
+    # The hosted, passcode-gated demonstration. Distinct from PRODUCTION on
+    # purpose: nothing here is clinically validated or approved for care, and an
+    # aggregate that merged the two would invite exactly the reading the rest of
+    # this repository refuses.
+    DEMO = "demo"
     PRODUCTION = "production"
 
 

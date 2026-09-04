@@ -697,9 +697,102 @@ test.describe("reduced motion", () => {
   });
 });
 
+test.describe("the conversation continues", () => {
+  /** True when the question field comes after the newest result in document order. */
+  const fieldFollowsNewestAnswer = (page: Page) =>
+    page.evaluate(() => {
+      const field = document.querySelector("#question");
+      const results = document.querySelectorAll("[id$='-result']");
+      const newest = results[results.length - 1];
+      if (!field || !newest) return null;
+      return Boolean(
+        newest.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    });
+
+  test("moves the question box below the answer, and asks again from there", async ({ page }) => {
+    await stubBackend(page);
+    await page.goto("/");
+
+    // Before anything is asked the box is the page, and there is no answer yet.
+    await expect(page.getByLabel("Your question or symptoms")).toBeVisible();
+    expect(await fieldFollowsNewestAnswer(page)).toBeNull();
+
+    await ask(page);
+    await page.waitForSelector("[id$='-result']");
+
+    // Now it sits after the answer, presented as a continuation.
+    expect(await fieldFollowsNewestAnswer(page)).toBe(true);
+    await expect(page.getByRole("heading", { name: "Ask a follow-up" })).toBeVisible();
+
+    await ask(page, "what about the side effects?");
+    await expect(page.locator("[id$='-result']")).toHaveCount(2);
+    // Both questions are still on the page, in the order they were asked.
+    // `exact` because the follow-up help copy quotes this very phrase as its
+    // example, and a substring match would find that instead.
+    await expect(page.getByText("what does my HbA1c mean?", { exact: true })).toBeVisible();
+    await expect(page.getByText("what about the side effects?", { exact: true })).toBeVisible();
+    // And the box has followed the conversation down.
+    expect(await fieldFollowsNewestAnswer(page)).toBe(true);
+  });
+
+  test("still moves focus to the newest result heading on a follow-up", async ({ page }) => {
+    await stubBackend(page);
+    await page.goto("/");
+    await ask(page);
+    await page.waitForSelector("[id$='-result']");
+    await ask(page, "what about the side effects?");
+    await expect(page.locator("[id$='-result']")).toHaveCount(2);
+
+    // The invariant the first turn already had, preserved across the move: a
+    // screen reader announces the new heading, not the page and not the box.
+    const newest = page.locator("[id$='-result']").last();
+    await expect(newest).toBeFocused();
+    expect(await newest.evaluate((node) => node.tagName)).toBe("H2");
+  });
+
+  test("has exactly one question field once the conversation is under way", async ({ page }) => {
+    await stubBackend(page);
+    await page.goto("/");
+    await ask(page);
+    await page.waitForSelector("[id$='-result']");
+
+    // Two would mean a duplicated id and two identically labelled boxes.
+    await expect(page.locator("#question")).toHaveCount(1);
+    await expect(page.getByLabel("Your question or symptoms")).toHaveCount(1);
+  });
+
+  test("the follow-up box is enabled and empty after an answer", async ({ page }) => {
+    await stubBackend(page);
+    await page.goto("/");
+    await ask(page);
+    await page.waitForSelector("[id$='-result']");
+
+    const field = page.getByLabel("Your question or symptoms");
+    await expect(field).toBeEnabled();
+    await expect(field).toHaveValue("");
+    await field.fill("a follow-up");
+    await expect(page.getByRole("button", { name: "Ask", exact: true })).toBeEnabled();
+  });
+});
+
 test.describe("accessibility", () => {
   const scan = (page: Page) =>
-    new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+
+  test("a continued conversation has no detectable violations", async ({ page }) => {
+    await stubBackend(page);
+    await page.goto("/");
+    await ask(page);
+    await page.waitForSelector("[id$='-result']");
+    await ask(page, "what about the side effects?");
+    await expect(page.locator("[id$='-result']")).toHaveCount(2);
+
+    const results = await scan(page);
+    expect(results.violations).toEqual([]);
+  });
 
   for (const state of ["answer", "emergency", "abstain", "failure_internal_error"]) {
     test(`the ${state} state has no detectable violations`, async ({ page }) => {

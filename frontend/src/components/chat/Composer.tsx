@@ -34,6 +34,16 @@ interface ComposerProps {
   examples: readonly string[];
   /** Hides the chips once a conversation is under way. */
   showExamples: boolean;
+  /**
+   * Presents the field as a continuation rather than a beginning.
+   *
+   * Only the presentation changes. The accessible label, the control names and
+   * the submit contract are identical, because this is the same field doing the
+   * same thing — a second one would mean two elements sharing `id="question"`,
+   * and a screen reader would find two "Your question or symptoms" boxes with
+   * no way to tell which is live.
+   */
+  followUp?: boolean;
   /** Focus and label the field from outside, e.g. after a retry. */
   fieldRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
@@ -45,6 +55,7 @@ export function Composer({
   busy,
   examples,
   showExamples,
+  followUp = false,
   fieldRef,
 }: ComposerProps) {
   const fallback = useRef<HTMLTextAreaElement>(null);
@@ -68,6 +79,19 @@ export function Composer({
 
   return (
     <div className="mx-auto max-w-xl">
+      {followUp ? (
+        <div className="mb-4">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-secondary">
+            Ask a follow-up
+          </h2>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-secondary">
+            This session stays open, so a follow-up is read in context — you can
+            ask &ldquo;what about the side effects?&rdquo; without repeating
+            yourself. A new question is fine here too.
+          </p>
+        </div>
+      ) : null}
+
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -97,7 +121,11 @@ export function Composer({
                 if (!busy && !empty) onSubmit();
               }
             }}
-            placeholder="What would you like to understand?"
+            placeholder={
+              followUp
+                ? "Ask a follow-up, or something new"
+                : "What would you like to understand?"
+            }
             aria-describedby="question-help question-count"
             className="block w-full resize-none rounded-t-[16px] bg-transparent px-5 pt-4 pb-2 text-[17px] leading-relaxed text-ink outline-none placeholder:text-ink-secondary/70 disabled:opacity-60"
           />

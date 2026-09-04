@@ -101,7 +101,7 @@ negation.
 ### What replaced it
 
 Stem-proximity matching over a governed vocabulary
-(`config/emergency_vocabulary.toml`, 11 concepts, 120+ patterns), with negation
+(`synapse/safety/emergency_vocabulary.toml`, 11 concepts, 120+ patterns), with negation
 scoping that stops at clause boundaries so "no chest pain **but** my face has
 drooped" still escalates.
 
@@ -117,7 +117,7 @@ The vocabulary is **engineering-authored and unreviewed**. 21 phrasings written
 by the same person who wrote the matcher demonstrate the matcher works. They say
 nothing about whether the concept list is clinically complete — *which
 escalation-worthy presentations are missing?* is unanswered and needs a
-clinician. `config/emergency_vocabulary.toml` carries an empty `reviewed_by`,
+clinician. `synapse/safety/emergency_vocabulary.toml` carries an empty `reviewed_by`,
 and the loader refuses to report it as approved while that is true.
 
 One deliberately accepted false positive: "my father had a stroke" escalates.

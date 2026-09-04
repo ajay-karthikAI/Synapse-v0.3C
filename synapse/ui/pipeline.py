@@ -201,8 +201,25 @@ def answer_turn(
             retrieved = retrieve(query)
     # Broad on purpose: retrieval spans FAISS, BM25 and an embedding API.
     except Exception as exc:
-        logger.warning("retrieval failed", extra={"error": type(exc).__name__})
-        failure = AnswerFailure(AnswerFailureCode.RETRIEVAL_FAILED, type(exc).__name__)
+        # An index that failed VERIFICATION is not an ordinary retrieval error
+        # and must not be reported as one. "BM25 raised" and "the index did not
+        # match its manifest" have different causes, different operator
+        # responses, and different consequences: the second means a citation
+        # could point at a different document than the one that was read, which
+        # is the failure the index gate exists to prevent. Collapsing both onto
+        # `retrieval_failed` made an integrity failure indistinguishable from a
+        # transient one, in the logs and on the screen.
+        #
+        # Only that one code is preserved from `classify`. Everything else stays
+        # `retrieval_failed`, because a provider error raised during retrieval
+        # should not surface as, say, `generation_unavailable`.
+        classified = classify(exc)
+        failure = (
+            classified
+            if classified.code is AnswerFailureCode.INDEX_UNVERIFIED
+            else AnswerFailure(AnswerFailureCode.RETRIEVAL_FAILED, type(exc).__name__)
+        )
+        logger.warning("retrieval failed", extra=failure.as_dict())
         _record_failure(request, failure, exc)
         return TurnOutcome(failure=failure)
 

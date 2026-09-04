@@ -171,6 +171,118 @@ jobs:
             tests/test_accessibility.py
 
   # -------------------------------------------------------------------------
+  api-contract:
+    name: API contract and privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api]"
+      # Split out of `integration-tests` so the two questions a reviewer asks
+      # most often -- "did the wire contract change?" and "can anything log a
+      # query?" -- have their own red/green rather than being one line in a
+      # twenty-file run.
+      - name: FastAPI contract, envelopes and OpenAPI snapshot
+        run: |
+          pytest -m "not live" \
+            tests/test_api.py \
+            tests/test_api_openapi.py \
+            tests/test_frontend_fixtures.py \
+            tests/test_service_retrieval.py
+      - name: Privacy and telemetry
+        # The invariant these hold: no query, answer, excerpt, note, credential
+        # or token reaches a log line, a metric label or a progress message.
+        run: |
+          pytest -m "not live" \
+            tests/test_telemetry_privacy.py \
+            tests/test_telemetry_metrics.py \
+            tests/test_no_pickle_and_imports.py
+      - name: Interface separation and container contract
+        # Streamlit stays a fallback over the same service; the image ships
+        # neither it nor a secret.
+        run: |
+          pytest -m "not live" \
+            tests/test_streamlit_fallback.py \
+            tests/test_container_contract.py
+      - name: Deployment configuration
+        # The names an operator types must be the names the code reads. Each
+        # mismatch fails misleadingly in production -- a missing session secret
+        # reports "session expired" rather than "unconfigured" -- so the aliases,
+        # render.yaml and vercel.json are asserted here.
+        run: pytest -m "not live" tests/test_deployment_config.py
+
+  # -------------------------------------------------------------------------
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev,api,runtime,streamlit]"
+      - name: pip-audit
+        # Every extra is installed above, so the audit covers what a deployment
+        # and a local fallback actually resolve -- auditing only `[dev,api]`
+        # would leave the container's retrieval stack unscanned.
+        run: pip-audit --strict --progress-spinner=off
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903  # v6.0.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: npm audit
+        working-directory: frontend
+        # Production dependencies are what ships to a patient's browser. Dev
+        # tooling advisories are reported but do not fail the build.
+        run: |
+          npm ci --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high
+          npm audit --audit-level=critical || echo "::warning::dev-dependency advisories above"
+
+  # -------------------------------------------------------------------------
+  container:
+    name: Container build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Build the image
+        # No secrets, no registry push. The image is built and exercised inside
+        # the job and then discarded.
+        run: docker build -t synapse-api:ci .
+      - name: Health and readiness smoke test, with a fake provider
+        # Asserts the degrade `serve_api.py` documents: a missing model
+        # credential leaves the process UP and unready with a typed code, rather
+        # than crash-looping. Also asserts the image ships no Streamlit, no
+        # .env, no pickle, and runs as a non-root user.
+        run: ./scripts/smoke_container.sh synapse-api:ci
+      - name: Assert no credential was baked into a layer
+        run: |
+          if docker run --rm --entrypoint sh synapse-api:ci -c 'ls -A /app' | grep -qE '^\.env'; then
+            echo "::error::a .env file is present in the image"
+            exit 1
+          fi
+          echo "No .env in the image."
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Validate the deployment configuration
+        # Builds the image and starts it with the DEPLOYMENT variable names
+        # (DEMO_ACCESS_PASSWORD / DEMO_SESSION_SECRET), proving the aliases
+        # resolve in a real container. Deploys nothing and contacts no platform.
+        run: |
+          python -m pip install --disable-pip-version-check pyyaml
+          ./scripts/validate_deployment.sh
+
+  # -------------------------------------------------------------------------
   artifact-validation:
     name: Artifact and schema validation
     runs-on: ubuntu-latest
@@ -289,15 +401,25 @@ jobs:
           # them to exist.
           SYNAPSE_SERVICE_TOKEN: ci-build-placeholder-0123456789ab
           SYNAPSE_JWT_SECRET: ci-build-placeholder-0123456789ab
+      # Both engines. The appointment brief is a modal `dialog` on mobile and a
+      # non-modal `complementary` region on desktop -- different ARIA and a
+      # different keyboard contract -- so running one project would leave half
+      # of that contract untested.
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - name: End-to-end and accessibility
-        run: npx playwright test --project=chromium
+      - name: End-to-end, accessibility and visual snapshots
+        # Visual baselines are committed as `-chromium-linux`, which is what
+        # this runner is; they are generated with scripts/visual_snapshots.sh
+        # using the same pinned Playwright container, so CI and a developer
+        # compare against identical images.
+        run: npx playwright test
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         if: failure()
         with:
           name: playwright-report
-          path: frontend/playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
           retention-days: 7
 
   # -------------------------------------------------------------------------
@@ -306,7 +428,18 @@ jobs:
     # does not require a branch-protection change; it just has to be listed here.
     name: CI passed
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, unit-tests, integration-tests, artifact-validation, offline-evaluation, frontend]
+    needs:
+      - lint
+      - format
+      - typecheck
+      - unit-tests
+      - integration-tests
+      - api-contract
+      - dependency-audit
+      - container
+      - artifact-validation
+      - offline-evaluation
+      - frontend
     if: always()
     steps:
       - name: Verify every required job succeeded

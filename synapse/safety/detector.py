@@ -37,7 +37,7 @@ How this works instead
 2. **Negation scoping.** An explicit denial before the symptom suppresses it,
    with scope ending at a clause boundary. See :mod:`synapse.safety.negation`.
 3. **A governed vocabulary.** Concepts live in
-   ``config/emergency_vocabulary.toml`` where a clinician can review them, not
+   ``synapse/safety/emergency_vocabulary.toml`` where a clinician can review them, not
    inline in application code.
 
 The asymmetry, again, because it governs every judgement call: **a missed

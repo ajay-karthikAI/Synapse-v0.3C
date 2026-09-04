@@ -259,7 +259,7 @@ Both were fixed:
 | Held-out emergencies (15, not used to build the vocabulary) | — | **15/15** |
 | Held-out ordinary queries (9) | — | **0 false positives** |
 
-**The remaining risk is not engineering.** `config/emergency_vocabulary.toml` is
+**The remaining risk is not engineering.** `synapse/safety/emergency_vocabulary.toml` is
 authored by engineering and carries `review_status = "unreviewed"` with an empty
 `reviewed_by`; the loader refuses to report it as approved while that is true.
 Twenty-one phrasings written by the same person who wrote the matcher demonstrate

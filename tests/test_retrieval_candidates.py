@@ -20,6 +20,7 @@ from synapse.retrieval.backends import (
 from synapse.retrieval.candidates import Candidate, Hit, fuse, union_candidates
 from synapse.retrieval.config import CandidateConfig, FusionStrategy
 from synapse.retrieval.evidence import bundle_from_candidates
+from synapse.retrieval.rerank import RerankVerdict
 from synapse.retrieval.search import (
     FULL_CORPUS_GUARD_FLOOR,
     UnboundedRetrievalError,
@@ -322,4 +323,48 @@ class TestEvidenceBundle:
 
     def test_relevance_is_clamped_to_a_display_range(self) -> None:
         candidates = [Candidate("pubmed:7#0000", "pubmed:7", "a", fused_score=999.0)]
-        assert bundle_from_candidates(candidates).relevance["pubmed:7"] == 1.0
+        verdicts = {
+            "pubmed:7#0000": RerankVerdict(chunk_id="pubmed:7#0000", relevance=999.0, rank=1)
+        }
+        assert bundle_from_candidates(candidates, verdicts=verdicts).relevance["pubmed:7"] == 1.0
+
+    def test_relevance_comes_from_the_reranker_verdict(self) -> None:
+        candidates = [Candidate("pubmed:7#0000", "pubmed:7", "a", fused_score=0.03)]
+        verdicts = {"pubmed:7#0000": RerankVerdict(chunk_id="pubmed:7#0000", relevance=8.0, rank=1)}
+        # 8.0 on the reranker's 0..10 scale, NOT 0.03 rescaled by anything.
+        assert bundle_from_candidates(candidates, verdicts=verdicts).relevance["pubmed:7"] == 0.8
+
+    def test_no_verdict_means_no_relevance_rather_than_a_fused_score(self) -> None:
+        """The bug this replaced: an RRF score rendered as a match quality.
+
+        RRF is rank-only and bounded near 0.03, so every source landed at
+        ~0.003 and the interface labelled all of them "Loosely matched the
+        question" — on every query, whatever the corpus held. Absent is the
+        honest answer when nothing judged the passage.
+        """
+        candidates = [Candidate("pubmed:7#0000", "pubmed:7", "a", fused_score=0.0328)]
+        assert bundle_from_candidates(candidates).relevance == {}
+        assert bundle_from_candidates(candidates, verdicts={}).relevance == {}
+
+    def test_relevance_is_absent_only_for_documents_the_reranker_did_not_score(self) -> None:
+        candidates = [
+            Candidate("pubmed:7#0000", "pubmed:7", "a", fused_rank=1, fused_score=0.03),
+            Candidate("pubmed:3#0000", "pubmed:3", "b", fused_rank=2, fused_score=0.02),
+        ]
+        verdicts = {"pubmed:7#0000": RerankVerdict(chunk_id="pubmed:7#0000", relevance=5.0, rank=1)}
+        bundle = bundle_from_candidates(candidates, verdicts=verdicts)
+        # Both sources are still cited and numbered; only the band is missing.
+        assert bundle.source_order == ["pubmed:7", "pubmed:3"]
+        assert bundle.relevance == {"pubmed:7": 0.5}
+
+    def test_relevance_follows_the_best_ranked_chunk_of_each_document(self) -> None:
+        """One row per document, so the first candidate for it decides."""
+        candidates = [
+            Candidate("pubmed:7#0000", "pubmed:7", "a", fused_rank=1, fused_score=0.03),
+            Candidate("pubmed:7#0001", "pubmed:7", "b", fused_rank=2, fused_score=0.02),
+        ]
+        verdicts = {
+            "pubmed:7#0000": RerankVerdict(chunk_id="pubmed:7#0000", relevance=9.0, rank=1),
+            "pubmed:7#0001": RerankVerdict(chunk_id="pubmed:7#0001", relevance=1.0, rank=2),
+        }
+        assert bundle_from_candidates(candidates, verdicts=verdicts).relevance == {"pubmed:7": 0.9}

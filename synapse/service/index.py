@@ -65,17 +65,48 @@ IndexBuilder = Callable[[Any], Any]  # corpus -> a freshly built retriever
 
 
 @dataclass(frozen=True)
+class RetrievalBackends:
+    """A dense and a sparse backend that are ALREADY typed.
+
+    Both satisfy :class:`synapse.retrieval.backends.DenseBackend` and
+    ``SparseBackend`` -- the same protocols ``search_candidates`` takes -- so a
+    caller hands them straight over with nothing to adapt.
+
+    Typed as ``Any`` for the same reason the fields below are: this module must
+    stay importable without a vector-search stack installed, and importing the
+    protocols to annotate two fields would not change what mypy can check about
+    objects the prototype produces.
+    """
+
+    dense: Any
+    sparse: Any
+
+
+@dataclass(frozen=True)
 class LoadedIndex:
     """The corpus and the retriever, ready to search.
 
     ``gate`` is the index-gate result. ``app.py`` recorded it and never read it;
     it is kept because it is the evidence that verification actually ran, and
     the transparency page has a use for it.
+
+    ``backends`` is how a **verified runtime artifact** reaches retrieval. The
+    legacy path leaves it ``None`` and supplies ``hybrid``, whose two halves get
+    wrapped in the adapters from :mod:`synapse.retrieval.production`; the
+    runtime path supplies ``backends`` already typed and leaves ``hybrid``
+    ``None``. Exactly one of the two is populated, and
+    :class:`~synapse.service.retrieval.RetrievalService` prefers ``backends``
+    when it is there.
+
+    Adding a field rather than changing ``hybrid``'s meaning is deliberate: the
+    legacy path is what runs locally and in every existing test, and it must
+    keep behaving identically.
     """
 
     chunks: Any  # The prototype's chunk objects; untyped by construction
-    hybrid: Any  # The prototype's HybridRetriever
+    hybrid: Any  # The prototype's HybridRetriever. None on the runtime path.
     gate: Any = None
+    backends: RetrievalBackends | None = None
 
 
 class IndexProvider(Protocol):

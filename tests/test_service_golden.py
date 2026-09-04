@@ -208,19 +208,34 @@ class TestEveryOutcomeIsCovered:
             "Update UNREACHABLE_CODES and docs/migration-parity.md §5."
         )
 
-    def test_an_unverifiable_index_still_fails_closed(self) -> None:
-        """The card is wrong; the *behaviour* is not, and that is what matters.
+    def test_an_unverifiable_index_fails_closed_and_says_which_failure_it_was(self) -> None:
+        """Fails closed, AND names the fault.
 
-        An integrity error during retrieval is classified ``retrieval_failed``
-        rather than ``index_unverified`` (see UNREACHABLE_CODES). The patient
-        gets the generic failure card instead of the specific one -- but nothing
-        is generated, nothing is cited, and no prose is shown, which are the
-        properties the index gate exists to guarantee.
+        This used to assert ``retrieval_failed``: the retrieval handler returned
+        a hard-coded code and never called ``classify``, so "the index did not
+        match its manifest" was indistinguishable from "BM25 raised" -- on the
+        screen and in the logs. Failing closed was never in doubt; telling the
+        difference was.
+
+        Both halves are asserted here. The fail-closed properties are the ones
+        the index gate exists to guarantee and must never be relaxed to make a
+        code assertion pass.
         """
         turn = next(state for state in STATES if state.name == "failure_index_gate_raised").build()
+        # Fail closed: nothing generated, nothing rendered, nothing cited.
         assert not turn.outcome.ok
         assert turn.outcome.presentation is None
-        assert failure_code(turn) == AnswerFailureCode.RETRIEVAL_FAILED.value
+        # And distinguishable from an ordinary retrieval error.
+        assert failure_code(turn) == AnswerFailureCode.INDEX_UNVERIFIED.value
+
+    def test_an_integrity_failure_is_distinguishable_from_a_retrieval_failure(self) -> None:
+        """The regression that made this fix necessary, asserted directly."""
+        integrity = next(s for s in STATES if s.name == "failure_index_gate_raised").build()
+        transient = next(s for s in STATES if s.name == "failure_retrieval_failed").build()
+        assert failure_code(integrity) != failure_code(transient), (
+            "an unverifiable index and a retrieval crash report the same code again; "
+            "an operator cannot tell a corrupted index from a transient fault"
+        )
 
     def test_the_configuration_failure_shows_the_same_patient_message(self) -> None:
         assert CONFIGURATION_FAILURE.patient_message == PATIENT_ERROR_MESSAGE

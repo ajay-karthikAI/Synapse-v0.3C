@@ -96,7 +96,7 @@ attached) and clinical review (not started).
 
 Emergency handling now passes 6/6 in-set and 15/15 on held-out phrasings, but
 every one of those 21 phrasings was written by the same person who wrote the
-matcher, and `config/emergency_vocabulary.toml` is **unreviewed**. That measures
+matcher, and `synapse/safety/emergency_vocabulary.toml` is **unreviewed**. That measures
 the matcher, not the completeness of the concept list. The open question —
 *which escalation-worthy presentations are missing?* — requires a clinician.
 

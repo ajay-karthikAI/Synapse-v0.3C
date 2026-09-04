@@ -57,7 +57,14 @@ class TelemetryConfig:
         """
         raw = os.environ.get("SYNAPSE_TELEMETRY", "").strip().lower()
         enabled = raw in {"1", "true", "yes", "on"}
-        environment = _parse_environment(os.environ.get("SYNAPSE_ENV", ""))
+        # `SYNAPSE_ENVIRONMENT` is the deployment alias; the hosting
+        # configuration sets it to "demo". Primary first, so an existing
+        # `SYNAPSE_ENV` keeps winning. An unrecognised value falls back to
+        # LOCAL rather than raising, which keeps a typo from being labelled
+        # production.
+        environment = _parse_environment(
+            os.environ.get("SYNAPSE_ENV", "").strip() or os.environ.get("SYNAPSE_ENVIRONMENT", "")
+        )
         sink = _parse_sink(os.environ.get("SYNAPSE_TELEMETRY_SINK", ""), enabled)
         return cls(
             enabled=enabled,

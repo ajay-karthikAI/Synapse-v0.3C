@@ -46,6 +46,10 @@ ENV_SHA256 = "SYNAPSE_ARTIFACT_SHA256"
 ENV_BUCKET = "SYNAPSE_ARTIFACT_BUCKET"
 ENV_KEY = "SYNAPSE_ARTIFACT_KEY"
 ENV_ENDPOINT = "SYNAPSE_ARTIFACT_ENDPOINT_URL"
+# Deployment alias. The hosting configuration names this
+# `SYNAPSE_ARTIFACT_S3_ENDPOINT`, which is what an operator sets in Render.
+# Consulted only when the primary is unset, so nothing existing changes.
+ENV_ENDPOINT_ALIAS = "SYNAPSE_ARTIFACT_S3_ENDPOINT"
 ENV_REGION = "SYNAPSE_ARTIFACT_REGION"
 ENV_CACHE_ROOT = "SYNAPSE_ARTIFACT_CACHE"
 
@@ -94,7 +98,11 @@ class RuntimeArtifactConfig:
             # variables rather than four, and so the key cannot drift from the
             # version it is supposed to name.
             key=os.getenv(ENV_KEY, "").strip() or default_key(version),
-            endpoint_url=os.getenv(ENV_ENDPOINT, "").strip() or None,
+            endpoint_url=(
+                os.getenv(ENV_ENDPOINT, "").strip()
+                or os.getenv(ENV_ENDPOINT_ALIAS, "").strip()
+                or None
+            ),
             region=os.getenv(ENV_REGION, "").strip() or None,
             cache_root=Path(cache_root) if cache_root else DEFAULT_CACHE_ROOT,
         )

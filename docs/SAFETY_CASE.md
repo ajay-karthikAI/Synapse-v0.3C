@@ -244,7 +244,7 @@ Ordered; each depends on the previous.
    cannot know what is missing from that list.
 2. ~~Fix the negation defect; promote `negation_accuracy` to blocking.~~
    **Done 2026-08-20.**
-3. **Clinical review of `config/emergency_vocabulary.toml` for completeness.**
+3. **Clinical review of `synapse/safety/emergency_vocabulary.toml` for completeness.**
    This is now the binding constraint on Claim 1.
 4. **Label a real evaluation set** with adequate denominators per hazard.
 5. **Approve real sources**, so Claim 4 has any evidence at all.

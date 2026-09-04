@@ -1,9 +1,11 @@
 query:          what does my HbA1c number actually mean?
 outcome:        failure
-failure_code:   retrieval_failed
-patient_card:   failure
+failure_code:   index_unverified
+patient_card:   insufficient evidence
 brief:          not eligible
 
-Something went wrong while preparing your answer, so it has not been shown. Nothing here is a substitute for speaking to a member of staff — if you need help now, please tell the front desk.
+Not enough verified information
 
-Reference code: retrieval_failed
+Synapse could not confirm its research library was intact, so it has not used it. This is a problem with the tool, not with your question.
+
+This is about what is in Synapse's sources, not about you or your health. It does not mean there is nothing to discuss, and it does not rule anything in or out.

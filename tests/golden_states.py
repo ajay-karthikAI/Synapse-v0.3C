@@ -422,8 +422,8 @@ STATES: tuple[GoldenState, ...] = (
     ),
     GoldenState(
         "failure_index_gate_raised",
-        "The index did not match its manifest. Fail closed -- but see UNREACHABLE_CODES: "
-        "this lands on retrieval_failed today, not index_unverified.",
+        "The index did not match its manifest. Fail closed, and say so: this now "
+        "carries index_unverified rather than being collapsed onto retrieval_failed.",
         lambda: _turn(retriever=_raises(ArtifactIntegrityError(artifact="hybrid_index"))),
     ),
     GoldenState(
@@ -468,28 +468,28 @@ CONFIGURATION_FAILURE = AnswerFailure(AnswerFailureCode.CONFIGURATION_ERROR)
 #     Raised at construction, before a turn exists. app.py catches
 #     MissingCredentialError and renders this code itself.
 #
-# INDEX_UNVERIFIED
-#     `synapse.ui.errors.classify` maps every artifact-integrity error to this
-#     code, and `synapse.service.index` fails the index gate precisely so it is
-#     produced. No TURN produces it: `answer_turn` wraps the retrieval stage in a
-#     handler that returns a hard-coded RETRIEVAL_FAILED and never calls
-#     `classify`, so an unverifiable index reaches a patient as the generic
-#     "something went wrong" card rather than the "could not confirm the research
-#     library was intact" one. app.py's EVIDENCE_FAILURE_CODES lists
-#     "index_unverified" and that branch is therefore still dead.
+# INDEX_UNVERIFIED -- CLOSED IN PHASE 6, and no longer in this set.
+#     History, because it explains the shape of the fix. `classify` mapped every
+#     artifact-integrity error to this code and `synapse.service.index` failed
+#     the index gate precisely so it would be produced -- but no TURN could
+#     produce it, because `answer_turn` wrapped the retrieval stage in a handler
+#     that returned a hard-coded RETRIEVAL_FAILED and never called `classify`.
+#     An unverifiable index therefore reached a patient as the generic
+#     "something went wrong" card, and reached an operator as an ordinary
+#     retrieval error, making an integrity failure indistinguishable from a
+#     transient one.
 #
-#     UPDATED IN PHASE 2. The code now has a producer -- but not a turn.
+#     Phase 2 gave the code a producer but not a turn:
 #     `synapse.runtime.readiness` reports it when the deployed artifact cannot be
-#     proven intact, which is a startup gate: readiness stays false and no turn
-#     is attempted at all. That is a deliberate, app-owned path rather than a
-#     classify() mapping, so this set still describes what a TURN can produce and
-#     the guard below still holds.
+#     proven intact, which is a startup gate rather than a turn.
 #
-#     The turn-path gap remains open. Recorded in docs/migration-parity.md §5.
+#     Phase 6 closed the turn path. The retrieval handler now preserves exactly
+#     this one code from `classify` and leaves every other exception on
+#     RETRIEVAL_FAILED, so `failure_index_gate_raised` renders through
+#     EVIDENCE_FAILURE_CODES as an insufficient-evidence state naming the reason.
 UNREACHABLE_CODES: frozenset[AnswerFailureCode] = frozenset(
     {
         AnswerFailureCode.CONFIGURATION_ERROR,
-        AnswerFailureCode.INDEX_UNVERIFIED,
     }
 )
 

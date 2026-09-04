@@ -225,6 +225,55 @@ level 2" and stops, rather than re-reading the page. `scrollIntoView` is called
 optionally: focus is what matters, scrolling is a nicety, and letting a missing
 method throw would take the whole answer down with it.
 
+### No two faults share a reference code
+
+Every failure screen carries fixed application copy plus a typed reference code,
+and no two faults may share one — support cannot tell them apart if they do.
+
+One pair used to. `index_unverified` could not reach the turn path:
+`answer_turn` wrapped the retrieval stage in a handler that returned a
+hard-coded `retrieval_failed` and never called `classify`, so "the index did not
+match its manifest" — an integrity failure, and the reason the index gate exists
+— was reported as an ordinary retrieval error, on screen and in the logs.
+
+The retrieval handler now preserves that one code from `classify` and leaves
+every other exception on `retrieval_failed` (so a provider error during
+retrieval does not surface as `generation_unavailable`). Because
+`index_unverified` is in `EVIDENCE_FAILURE_CODES`, the state renders as an
+insufficient-evidence screen that names the reason — "Synapse could not confirm
+its research library was intact, so it has not used it. This is a problem with
+the tool, not with your question" — instead of the generic error card.
+
+`visual.spec.ts` asserts code uniqueness with **no exceptions**, and
+`tests/test_service_golden.py` asserts the integrity and transient failures stay
+distinguishable.
+
+### The composer follows the conversation
+
+Before the first answer the composer is the page: centred, with the example
+chips beneath it. Once a turn has been **answered** it moves below the newest
+result, so the document reads question → answer → ask again, and the box to
+continue in is the last thing before the clear control.
+
+Two constraints shape that.
+
+**There is only ever one composer.** The field carries a fixed `id="question"`,
+and a second copy would mean a duplicated id and two identically labelled boxes
+with nothing to distinguish them in the accessibility tree. So it moves; it is
+not duplicated.
+
+**It moves on the answer, not on the submit.** `turns.length > 0` gates the
+position rather than `started`. Moving it the instant Ask is pressed would
+unmount the button that currently holds focus and drop a keyboard user to the
+document body for the length of the request. At the boundary that is actually
+used, the arriving turn takes focus to its own heading in the same commit, so
+the move costs nothing — asserted in the e2e suite for the follow-up as well as
+the first turn.
+
+Follow-ups are resolved against the session's history on the server
+(`synapse.memory.query_rewrite`), which is what makes a bare "what about the
+side effects?" a complete question here.
+
 ### Relevance is never a percentage
 
 The server sends a 0..1 retrieval score whose own field description says it is
@@ -232,6 +281,19 @@ neither a confidence nor a quality grade. Rendered as a coarse verbal band
 ("Closely matched the question"), because "91%" beside a citation is read as
 "91% reliable" by every patient who sees it. A unit test asserts no `%` reaches
 an answer.
+
+**And it is often absent, which is a feature.** The number is the *reranker's*
+judgement of how well a passage answered this question, scaled by
+`RerankConfig.max_score` — never a fusion score. Under RRF, the default, a fused
+score is `sum(1 / (k + rank))` and therefore a function of rank alone, bounded
+near 0.033 whatever the corpus actually held; rescaling it would put the top
+source near 100% on every query, including one nothing in the corpus can answer.
+So when reranking is disabled, skipped, or degrades to the fused order,
+`relevance` is `null` and `matchBand` renders **no band at all** rather than a
+manufactured one. That is the contract `docs/evidence-ux.md` §2 already sets out
+("Retrieval relevance — the reranker — absent when reranking was skipped or
+degraded"), enforced in `synapse/retrieval/evidence.py` and covered by
+`tests/test_service_retrieval.py`.
 
 ---
 

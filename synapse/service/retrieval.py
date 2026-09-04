@@ -44,9 +44,10 @@ from synapse.retrieval import (
     rerank_candidates,
     search_candidates,
 )
+from synapse.retrieval.backends import DenseBackend, SparseBackend
 from synapse.service.clients import ClientFactory
 from synapse.service.governance import EligibilityDecision
-from synapse.service.index import IndexProvider
+from synapse.service.index import IndexProvider, LoadedIndex
 from synapse.service.progress import ProgressEvent, ProgressReporter, ProgressStage, null_reporter
 
 
@@ -85,8 +86,6 @@ class RetrievalService:
         search query. It does not reach the emergency detector and it does not
         reach generation.
         """
-        from synapse.retrieval.production import LegacyDenseBackend, LegacySparseBackend
-
         loaded = self._index.load(report)
 
         # Resolve a context-dependent follow-up ("what about the side effects?")
@@ -95,14 +94,16 @@ class RetrievalService:
         report(ProgressEvent(ProgressStage.UNDERSTANDING_QUESTION))
         retrieval_query, was_rewritten = self._rewrite(query, history)
 
+        dense, sparse = self._backends(loaded)
+
         report(ProgressEvent(ProgressStage.SEARCHING))
         # Bounded on both sides. Neither count is derived from the corpus size:
         # the prototype asked FAISS for top_k=len(chunks) and BM25 for a score
         # per chunk, on every query.
         retrieval = search_candidates(
             retrieval_query,
-            dense=LegacyDenseBackend(loaded.hybrid.vector_store, self._api_key),
-            sparse=LegacySparseBackend(loaded.hybrid.bm25_index),
+            dense=dense,
+            sparse=sparse,
             config=DEFAULT_CANDIDATE_CONFIG,
             eligible_documents=eligibility.document_ids,
         )
@@ -121,6 +122,13 @@ class RetrievalService:
         report(ProgressEvent(ProgressStage.PREPARING_ANSWER))
         return bundle_from_candidates(
             outcome.candidates,
+            # The reranker's usefulness judgement, which is the ONLY thing on
+            # this path entitled to be shown as a relevance. When the rerank
+            # degraded or was disabled this mapping is empty, and the bundle
+            # then carries no relevance rather than a number derived from the
+            # fused score -- see `bundle_from_candidates`.
+            verdicts=outcome.verdicts,
+            relevance_scale=DEFAULT_RERANK_CONFIG.max_score,
             metadata={
                 "retrieval": retrieval.trace.as_metadata(),
                 "rerank": outcome.as_metadata(),
@@ -141,6 +149,37 @@ class RetrievalService:
                 # through AnswerPresentation.conversion.
                 "rewrite": {"resolved_query": retrieval_query if was_rewritten else ""},
             },
+        )
+
+    def _backends(self, loaded: LoadedIndex) -> tuple[DenseBackend, SparseBackend]:
+        """The dense and sparse backends for this index, whichever kind it is.
+
+        Two index shapes reach here and both end up as the same pair of
+        protocols, so everything downstream -- fusion, the candidate guard, the
+        reranker, the bundle -- is identical for both. That is the point of the
+        seam: the deployed artifact and the local prototype must not be able to
+        answer the same question differently.
+
+        * **Verified runtime artifact.** ``loaded.backends`` is already typed
+          (:class:`~synapse.retrieval.native.NativeDenseBackend` and
+          ``NativeSparseBackend``), so it is handed over untouched. Sparse state
+          was rebuilt from the verified corpus rather than unpickled.
+        * **Legacy prototype index.** ``loaded.hybrid`` carries the untyped
+          ``vector_store`` and ``bm25_index``, wrapped here in the adapters that
+          derive stable identifiers and drop anything uncitable.
+
+        The legacy import stays function-local, as it was: ``synapse`` must be
+        importable without a vector-search stack, and a deployment serving the
+        artifact should not pay for the prototype's dependencies at all.
+        """
+        if loaded.backends is not None:
+            return loaded.backends.dense, loaded.backends.sparse
+
+        from synapse.retrieval.production import LegacyDenseBackend, LegacySparseBackend
+
+        return (
+            LegacyDenseBackend(loaded.hybrid.vector_store, self._api_key),
+            LegacySparseBackend(loaded.hybrid.bm25_index),
         )
 
     def _rewrite(self, query: str, history: Sequence[TurnSummary]) -> tuple[str, bool]:

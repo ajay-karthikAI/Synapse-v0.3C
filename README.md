@@ -221,10 +221,52 @@ validation. A committed example report is at
 
 ---
 
-## Run the legacy app
+## Run it
+
+There are two interfaces over **one** application service
+(`synapse/service/`). Neither carries retrieval or safety logic of its own, so
+they cannot answer the same question differently —
+`tests/test_streamlit_fallback.py` fails the build if that stops being true.
+
+### The primary interface: Next.js over FastAPI
+
+The browser talks to a same-origin Next.js server proxy, which talks to
+FastAPI. `OPENAI_API_KEY` is server-side only and never reaches the bundle.
 
 ```bash
-pip install -r requirements.txt
+# 1. The API. Environment comes from a gitignored root .env holding
+#    OPENAI_API_KEY, SYNAPSE_SERVICE_TOKEN, SYNAPSE_JWT_SECRET and
+#    SYNAPSE_ACCESS_PASSCODE. Assignments only: `.env` is SOURCED, so any
+#    command left in it is executed.
+pip install -e ".[api,runtime]"
+set -a; . ./.env; set +a
+python -m uvicorn serve_api:app --host 127.0.0.1 --port 8000
+# expect: /readyz -> {"ready":true,...}
+
+# 2. The interface. Config lives in a gitignored frontend/.env.local.
+cd frontend && npm ci && npm run build && npx next start --port 3210
+```
+
+Use `next start`, not `next dev`: the nonce CSP with `'strict-dynamic'` blocks
+the dev HMR bootstrap, so React never hydrates. The page looks normal, accepts
+typing, and no button ever enables — it reads as "the app is broken" rather than
+as a CSP error.
+
+Or run the API as the container it deploys as:
+
+```bash
+docker build -t synapse-api .
+./scripts/smoke_container.sh synapse-api
+```
+
+### The fallback: Streamlit, locally
+
+Supported, and deliberately kept: it exercises the same service without a
+browser toolchain. It is **not** what deploys, and its dependencies are a
+separate extra so the container cannot acquire a second web framework.
+
+```bash
+pip install -e ".[streamlit,runtime]"
 export OPENAI_API_KEY="sk-..."     # required — see below
 streamlit run app.py
 ```

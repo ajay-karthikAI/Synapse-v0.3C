@@ -1,0 +1,104 @@
+# Render blueprint: ONE always-on web service running the FastAPI container.
+#
+# No value in this file is a secret. Every credential is declared `sync: false`,
+# which makes Render prompt for it once and store it encrypted — the repository
+# never holds it, and a fork of this repository cannot deploy with it.
+# tests/test_deployment_config.py fails the build if a literal value appears.
+#
+# Runbooks — deploy, rotate, publish an artifact, smoke test, monitor, roll
+# back — are in docs/deployment.md. This file is the machine-readable half of
+# the same contract.
+
+services:
+  - type: web
+    name: synapse-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter          # Always on. The free plan sleeps, and a sleeping demo
+                           # cold-starts into a FAISS load while someone waits.
+    region: oregon
+    branch: main
+    autoDeploy: false      # Promotion is a decision. See docs/deployment.md §4.
+
+    # Liveness is the container's own HEALTHCHECK. THIS is readiness: Render
+    # withholds traffic until the artifact is downloaded, verified and loadable.
+    # Pointing it at /healthz instead would route traffic to a process that is
+    # alive and has nothing to retrieve from.
+    healthCheckPath: /readyz
+
+    # ONE worker, deliberately.
+    #
+    # Sessions are in-memory (`synapse/api/sessions.py`), and the emergency
+    # latch lives in the session. A second worker would serve half the requests
+    # from a process that has never seen the conversation: a follow-up would
+    # lose its history, and — the reason this is not merely a UX bug — a latched
+    # escalation would not re-escalate, because the latch is in the other
+    # process's memory. Scale by making the session store shared, never by
+    # raising this number.
+    dockerCommand: >-
+      python -m uvicorn serve_api:app
+      --host 0.0.0.0 --port 8000
+      --workers 1
+      --proxy-headers --forwarded-allow-ips '*'
+
+    # The verified runtime artifact is downloaded once and cached here. It
+    # matches synapse.runtime.config.DEFAULT_CACHE_ROOT, so a restart re-verifies
+    # a local copy instead of re-downloading several hundred megabytes.
+    disk:
+      name: synapse-artifact-cache
+      mountPath: /var/data/synapse
+      sizeGB: 10
+
+    envVars:
+      # --- Secrets. Set once in the Render dashboard; never in this file. ---
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SYNAPSE_SERVICE_TOKEN
+        sync: false          # Must equal the value Vercel sends. See §2.
+      - key: DEMO_ACCESS_PASSWORD
+        sync: false          # Read as SYNAPSE_ACCESS_PASSCODE's alias
+      - key: DEMO_SESSION_SECRET
+        sync: false          # Must equal Vercel's. Both sides sign the same cookie.
+      - key: AWS_ACCESS_KEY_ID
+        sync: false          # Read-only credential for the artifact bucket
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+      # --- Which artifact to serve. Not secret; pinned and auditable. ---
+      # Setting SYNAPSE_ARTIFACT_BUCKET is what switches the process from the
+      # legacy prototype index to the verified artifact. Leave it unset and the
+      # service runs the legacy path, which is the local default.
+      - key: SYNAPSE_ARTIFACT_VERSION
+        sync: false          # REQUIRED. Also defaults the key when one is not given.
+      - key: SYNAPSE_ARTIFACT_S3_ENDPOINT
+        sync: false          # e.g. https://<account>.r2.cloudflarestorage.com
+      - key: SYNAPSE_ARTIFACT_BUCKET
+        sync: false
+      - key: SYNAPSE_ARTIFACT_KEY
+        sync: false          # e.g. runtime/synapse-runtime-0.3.0.tar.gz
+      - key: SYNAPSE_ARTIFACT_SHA256
+        sync: false          # The digest the archive MUST hash to, or startup fails
+      - key: SYNAPSE_ARTIFACT_CACHE
+        value: /var/data/synapse
+
+      # --- Environment and telemetry. Content-free by construction. ---
+      - key: SYNAPSE_ENVIRONMENT
+        value: demo          # NOT "production": nothing here is clinically validated
+      - key: SYNAPSE_TELEMETRY
+        value: "1"
+      - key: SYNAPSE_TELEMETRY_SINK
+        value: stdout        # Counters and typed codes only. No query, answer,
+                             # excerpt, note, credential or token is ever recorded
+                             # (docs/privacy-logging-policy.md).
+      - key: SYNAPSE_TELEMETRY_RETENTION_DAYS
+        value: "30"
+
+      # One proxy hop: Render's load balancer. The client address is taken this
+      # many entries from the right of X-Forwarded-For, so a client cannot choose
+      # its own rate-limit key by prepending entries.
+      - key: SYNAPSE_TRUSTED_PROXY_HOPS
+        value: "1"
+
+      - key: PYTHONUNBUFFERED
+        value: "1"           # Logs reach the platform as they happen, not on exit

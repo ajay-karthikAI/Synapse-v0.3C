@@ -19,9 +19,17 @@ Three secrets, and none of them is ever returned, logged, or compared with
     Signs the eight-hour access token. Rotating it invalidates every session,
     which is the intended emergency control.
 
+Two of the three also answer to a **deployment alias**, because the hosting
+configuration names them differently: ``DEMO_ACCESS_PASSWORD`` for the passcode
+and ``DEMO_SESSION_SECRET`` for the signing secret. The ``SYNAPSE_*`` name wins
+when both are set. Accepting both removes a hand translation that fails
+silently — an unset passcode reads as "wrong passcode", and an unset signing
+secret reads as "your session has expired", on every request, forever.
+
 All three are read once at startup. :meth:`ApiSettings.validate` refuses to
 start a deployment that has not set them, rather than defaulting to something
-usable — a default passcode is an open door with a changelog entry.
+usable — a default passcode is an open door with a changelog entry. Where an
+alias exists, the error names both accepted variables.
 
 Nothing here has a development fallback. A missing secret is a startup failure,
 because the alternative is a deployment that looks configured and is not.
@@ -43,6 +51,36 @@ ENV_SERVICE_TOKEN = "SYNAPSE_SERVICE_TOKEN"  # noqa: S105
 ENV_PASSCODE = "SYNAPSE_ACCESS_PASSCODE"
 ENV_JWT_SECRET = "SYNAPSE_JWT_SECRET"  # noqa: S105
 ENV_TRUSTED_PROXY_HOPS = "SYNAPSE_TRUSTED_PROXY_HOPS"
+
+# Deployment aliases.
+#
+# The hosting configuration names the shared-passcode demo's secrets
+# `DEMO_ACCESS_PASSWORD` and `DEMO_SESSION_SECRET`. Those are the names an
+# operator sets in the Render dashboard and in Vercel, and the frontend reads
+# the same pair. Accepting both here means the deployment does not depend on
+# anyone remembering to translate two names by hand -- a translation that fails
+# silently, because a missing passcode reads as "wrong passcode" and a missing
+# JWT secret reads as "your session expired".
+#
+# The `SYNAPSE_*` names remain primary: they are what the local `.env`, the
+# tests and every existing document use. An alias is consulted only when the
+# primary is unset, so nothing that works today changes.
+ENV_PASSCODE_ALIAS = "DEMO_ACCESS_PASSWORD"
+ENV_JWT_SECRET_ALIAS = "DEMO_SESSION_SECRET"  # noqa: S105
+
+
+def _first_set(*names: str) -> str:
+    """The first environment variable that is set and non-empty, else "".
+
+    Order is precedence. Values are never logged or echoed: a caller that wants
+    to report a problem reports the NAMES, which is what `validate` does.
+    """
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
+
 
 # The session and token lifetimes from the locked architecture. Both are
 # deliberately short: a waiting-room device is shared, and a forgotten tab
@@ -105,8 +143,9 @@ class ApiSettings:
             hops = -1  # Deliberately invalid, so validate() reports it
         return cls(
             service_token=os.getenv(ENV_SERVICE_TOKEN, ""),
-            passcode=os.getenv(ENV_PASSCODE, ""),
-            jwt_secret=os.getenv(ENV_JWT_SECRET, ""),
+            # Primary first, deployment alias second. See ENV_PASSCODE_ALIAS.
+            passcode=_first_set(ENV_PASSCODE, ENV_PASSCODE_ALIAS),
+            jwt_secret=_first_set(ENV_JWT_SECRET, ENV_JWT_SECRET_ALIAS),
             trusted_proxy_hops=hops,
         )
 
@@ -117,12 +156,15 @@ class ApiSettings:
             ApiConfigurationError: a secret is missing or too short, or the
                 proxy-hop count is not a non-negative integer.
         """
+        # Where an alias is accepted, BOTH names are reported. Naming only the
+        # primary would tell an operator who set `DEMO_SESSION_SECRET` in Render
+        # to go and set a variable they deliberately did not use.
         missing = [
             name
             for name, value in (
                 (ENV_SERVICE_TOKEN, self.service_token),
-                (ENV_PASSCODE, self.passcode),
-                (ENV_JWT_SECRET, self.jwt_secret),
+                (f"{ENV_PASSCODE}|{ENV_PASSCODE_ALIAS}", self.passcode),
+                (f"{ENV_JWT_SECRET}|{ENV_JWT_SECRET_ALIAS}", self.jwt_secret),
             )
             if not value
         ]

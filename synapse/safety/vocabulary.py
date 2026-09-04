@@ -1,7 +1,7 @@
 """
 synapse.safety.vocabulary
 =========================
-Typed loader for ``config/emergency_vocabulary.toml``.
+Typed loader for ``synapse/safety/emergency_vocabulary.toml``.
 
 The vocabulary is **untrusted input**, like every other artifact in this
 repository: validated on load with ``extra="forbid"``, never trusted because it
@@ -15,6 +15,7 @@ label is not the evidence; the reviewer identifier is.
 
 from __future__ import annotations  # Postponed annotations
 
+import os
 import tomllib  # stdlib TOML. Never YAML — unsafe loaders are forbidden here.
 from pathlib import Path
 
@@ -26,10 +27,43 @@ from synapse.schemas.base import SynapseModel
 
 logger = get_logger(__name__)
 
-# Default location. Overridable so tests never depend on repository state.
-DEFAULT_VOCABULARY_PATH = Path(__file__).resolve().parent.parent.parent / (
-    "config/emergency_vocabulary.toml"
+# Default location: BESIDE THIS MODULE, shipped as package data.
+#
+# It used to resolve two directories up, at the repository's `config/`. That
+# works in a source checkout and nowhere else -- from an installed wheel the
+# same expression points at `site-packages/config/`, which does not exist. The
+# first container built from this package started, passed its liveness check,
+# and reported itself permanently unready with `VocabularyError`: failing
+# closed, correctly, but unable to run the first safety gate at all.
+#
+# Since the emergency check precedes retrieval and generation, "the detector
+# cannot load" must never depend on how the package was installed. Keeping the
+# file inside the package makes it travel with the code, and
+# `tool.setuptools.package-data` in pyproject.toml puts it in the wheel.
+DEFAULT_VOCABULARY_PATH = Path(__file__).resolve().parent / "emergency_vocabulary.toml"
+
+# The pre-move location. Still honoured, so a deployment that mounted its own
+# reviewed vocabulary at the documented path keeps working rather than silently
+# falling back to the shipped one. Checked ONLY when it exists.
+LEGACY_VOCABULARY_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "config" / "emergency_vocabulary.toml"
 )
+
+
+def default_vocabulary_path() -> Path:
+    """Where the vocabulary is read from, in precedence order.
+
+    ``SYNAPSE_EMERGENCY_VOCABULARY`` wins, so an operator can point a container
+    at a reviewed file without rebuilding the image. Then the repository's
+    ``config/`` copy if one is present, so an existing local override is not
+    ignored by this move. Otherwise the packaged file, which always exists.
+    """
+    override = os.environ.get("SYNAPSE_EMERGENCY_VOCABULARY", "").strip()
+    if override:
+        return Path(override)
+    if LEGACY_VOCABULARY_PATH.is_file():
+        return LEGACY_VOCABULARY_PATH
+    return DEFAULT_VOCABULARY_PATH
 
 
 class VocabularyError(SynapseArtifactError):
@@ -118,7 +152,7 @@ class EmergencyVocabulary(SynapseModel):
     @classmethod
     def load(cls, path: Path | None = None) -> EmergencyVocabulary:
         """Read and validate the vocabulary file."""
-        target = path or DEFAULT_VOCABULARY_PATH
+        target = path or default_vocabulary_path()
         if not target.is_file():
             # Refuse rather than degrade. A detector with no vocabulary would
             # escalate nothing, which is the most dangerous possible failure.

@@ -1,0 +1,64 @@
+# Everything the image must NOT contain.
+#
+# This file is a security control as much as a build optimisation. The two
+# entries that matter most are `.env` and `*.pkl`: one is credentials, the other
+# is the legacy pickle corpus, and neither may ever be baked into a layer. A
+# layer is world-readable to anyone who can pull the image, and deleting a file
+# in a later RUN does not remove it from the layer that added it.
+
+# --- Credentials and local configuration -----------------------------------
+.env
+.env.*
+*.pem
+*.key
+frontend/.env*
+
+# --- The legacy prototype: never in the deployed image ---------------------
+# The container serves the API from the `synapse` package. The prototype trees
+# and their pickle corpus are development-only, and `*.pkl` is refused outright
+# by tests/test_no_pickle_and_imports.py's spirit as well as by size.
+*.pkl
+Data/
+Retrieval/
+Generation/
+Evaluation/
+hybrid_index/
+processed_chunks.pkl
+
+# --- The other interface ---------------------------------------------------
+# Streamlit is a local fallback and is not installed in this image; shipping its
+# entry point would invite someone to try to run it here.
+app.py
+templates/
+
+# --- Frontend: built and deployed separately (Vercel) ----------------------
+frontend/
+
+# --- Build, test and tooling artefacts -------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+*.egg-info/
+artifacts/
+evals/
+tests/
+
+# --- VCS and editor --------------------------------------------------------
+.git/
+.github/
+.gitignore
+.gitleaks*
+.DS_Store
+.devcontainer/
+.claude/
+*.md
+!README.md
