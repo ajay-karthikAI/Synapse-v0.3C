@@ -227,6 +227,20 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: pyproject.toml
+      - name: Upgrade the build tooling before auditing it
+        # `pip-audit` audits the whole environment, and on a GitHub runner that
+        # includes the pip and setuptools that `setup-python` ships -- neither
+        # of which is a dependency of this project. setuptools 79.0.1 carries
+        # PYSEC-2026-3447 and pip 25.0.1 carries four more.
+        #
+        # `[build-system] requires = ["setuptools>=83"]` does NOT fix this: that
+        # governs only pip's isolated BUILD environment, not the interpreter
+        # being audited. So they are upgraded here.
+        #
+        # Upgraded rather than ignored. `--ignore-vuln` would make the job pass
+        # while the environment stayed vulnerable, which is the opposite of what
+        # a dependency audit is for.
+        run: python -m pip install --disable-pip-version-check --upgrade pip setuptools wheel
       - name: Install
         run: python -m pip install --disable-pip-version-check -e ".[dev,api,runtime,streamlit]"
       - name: pip-audit
