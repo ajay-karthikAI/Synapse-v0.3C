@@ -184,6 +184,37 @@ test.describe("asking a question", () => {
 
     await expect(page.getByText("Do not enter anything that identifies you")).toBeVisible();
   });
+
+  test("the identifier warning sits above 'What it will not do', not above the box", async ({
+    page,
+  }) => {
+    // It reads as a standing disclaimer rather than a gate in front of the
+    // question. Asserted in document order rather than by pixel position, so a
+    // spacing change cannot fail it and a move back to the top cannot pass it.
+    await stubBackend(page);
+    await page.goto("/");
+
+    const order = await page.evaluate(() => {
+      const notice = [...document.querySelectorAll("h2")].find((h) =>
+        /identifies you/i.test(h.textContent ?? ""),
+      );
+      const closing = [...document.querySelectorAll("h2")].find((h) =>
+        /what it will not do/i.test(h.textContent ?? ""),
+      );
+      const field = document.querySelector("#question");
+      if (!notice || !closing || !field) return null;
+      const follows = (a: Element, b: Element) =>
+        Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return {
+        afterTheField: follows(field, notice),
+        beforeTheClosingSection: follows(notice, closing),
+      };
+    });
+
+    expect(order, "the notice, the field or the closing section is missing").not.toBeNull();
+    expect(order!.afterTheField).toBe(true);
+    expect(order!.beforeTheClosingSection).toBe(true);
+  });
 });
 
 test.describe("the stage timeline", () => {

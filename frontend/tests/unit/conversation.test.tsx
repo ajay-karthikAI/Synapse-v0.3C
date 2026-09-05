@@ -99,27 +99,34 @@ describe("asking a question", () => {
     expect(screen.getByLabelText(/your question or symptoms/i)).toHaveValue(EXAMPLES[0]);
   });
 
-  it("shows the permanent identifier warning before anything is asked", () => {
-    render(<Conversation examples={EXAMPLES} />);
-    expect(screen.getByText(/do not enter anything that identifies you/i)).toBeInTheDocument();
-    // No dismiss control: it stays for as long as the field it applies to.
-    expect(screen.queryByRole("button", { name: /dismiss|close|got it/i })).toBeNull();
+  it("announces the identifier warning AT the field, not only on the page", () => {
+    /**
+     * The visible notice moved to the foot of the page, above "What it will not
+     * do" — see `IdentifierNotice`. This asserts the half that must not have
+     * moved with it: the textarea describes itself, so a screen-reader user is
+     * told at the point of typing rather than only if they happen to read the
+     * bottom of the document.
+     *
+     * The visible notice's own presence and placement are asserted at page
+     * level in `tests/e2e/conversation.spec.ts`, which is where it now lives.
+     */
+    const { container } = render(<Conversation examples={EXAMPLES} />);
+    const field = screen.getByLabelText(/your question or symptoms/i);
+    const describedBy = field.getAttribute("aria-describedby") ?? "";
+    expect(describedBy).toBeTruthy();
+
+    const described = describedBy
+      .split(/\s+/)
+      .map((id) => container.querySelector(`#${id}`)?.textContent ?? "")
+      .join(" ");
+    expect(described).toMatch(/identifies you/i);
   });
 
-  it("keeps the warning visible after an answer has been rendered", async () => {
-    vi.stubGlobal(
-      "fetch",
-      route({
-        "GET v1/session": SESSION_EMPTY,
-        "POST v1/turns/stream": () => sse(frame("envelope", envelope("answer"))),
-      }),
-    );
-    const user = userEvent.setup();
+  it("offers no way to dismiss the warning", () => {
     render(<Conversation examples={EXAMPLES} />);
-    await ask(user, "q");
-    await screen.findByRole("heading", { name: /what the research says/i });
-
-    expect(screen.getByText(/do not enter anything that identifies you/i)).toBeInTheDocument();
+    // Unrestricted free text is the design; the warning is the control, and a
+    // control with an "understood" button is a control that gets clicked once.
+    expect(screen.queryByRole("button", { name: /dismiss|close|got it/i })).toBeNull();
   });
 });
 

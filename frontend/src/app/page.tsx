@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Wordmark } from "@/components/brand/Wordmark";
+import { IdentifierNotice } from "@/components/chat/IdentifierNotice";
 import { Conversation } from "@/components/chat/Conversation";
 
 export const metadata: Metadata = { title: "Ask" };
@@ -53,7 +54,13 @@ export default function HomePage() {
 
       <Conversation examples={EXAMPLES} />
 
-      <div className="mx-auto mt-4 max-w-xl px-5 pb-20 text-center">
+      {/* A standing disclaimer, not a gate in front of the question box.
+          The composer announces its own identifier warning at the field via
+          aria-describedby, so this placement changes what the page LOOKS
+          like without changing what a screen reader hears while typing. */}
+      <IdentifierNotice />
+
+      <div className="mx-auto mt-12 max-w-xl px-5 pb-20 text-center">
         <h2 className="font-display text-lg font-semibold text-display">
           What it will not do
         </h2>

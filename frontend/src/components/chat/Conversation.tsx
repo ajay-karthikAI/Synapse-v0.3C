@@ -209,25 +209,6 @@ export function Conversation({ examples }: ConversationProps) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-5 pb-24">
-      {/* The identifier warning. Permanent, not dismissible: free text is
-          unrestricted by design, so the warning stays for as long as the field
-          it applies to. */}
-      <div
-        role="note"
-        className="mx-auto mb-8 max-w-xl rounded-[16px] border border-warning/25 bg-warning-surface px-5 py-4"
-      >
-        <h2 className="text-sm font-semibold text-warning">
-          Do not enter anything that identifies you
-        </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-ink">
-          No name, date of birth, contact details or record number. Your question
-          is sent to a model provider to be answered, and this prototype has no
-          approval to handle personal health information. It is research
-          software, not a medical device, and it has not been clinically
-          validated.
-        </p>
-      </div>
-
       {restored !== null && turns.length === 0 ? (
         <div
           role="status"
