@@ -49,17 +49,11 @@ const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
 
-// HSTS only in production. Sending it from a local HTTP dev server would pin
-// `localhost` to HTTPS in the developer's browser for two years.
-const productionHeaders =
-  process.env.NODE_ENV === "production"
-    ? [
-        {
-          key: "Strict-Transport-Security",
-          value: "max-age=63072000; includeSubDomains; preload",
-        },
-      ]
-    : [];
+// HSTS is NOT here. It moved to `src/middleware.ts`, which can see the request
+// host and therefore knows whether the response is actually travelling over
+// HTTPS — a question this file cannot ask, and which `NODE_ENV` answers wrongly
+// (`next start` sets it to "production" and is how this runs locally).
+const productionHeaders: { key: string; value: string }[] = [];
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

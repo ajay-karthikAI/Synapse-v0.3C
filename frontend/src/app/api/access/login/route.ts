@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { callBackend } from "@/lib/backend";
-import { ACCESS_TTL_SECONDS, IS_PRODUCTION, isConfigured } from "@/lib/env";
+import { ACCESS_TTL_SECONDS, isConfigured } from "@/lib/env";
+import { isSecureRequest } from "@/lib/secure-context";
 import { ACCESS_COOKIE } from "@/lib/session";
 
 /**
@@ -85,9 +86,12 @@ export async function POST(request: Request) {
     name: ACCESS_COOKIE,
     value: token,
     httpOnly: true, // Unreadable to page JavaScript
-    // Off over plain HTTP in local development, where the browser would
-    // otherwise refuse to store it and sign-in would silently never work.
-    secure: IS_PRODUCTION,
+    // Asked of the REQUEST, not of NODE_ENV. `next start` sets NODE_ENV to
+    // "production" and is how this runs locally, so the old test marked the
+    // cookie Secure over plain HTTP. Chrome stores it anyway on loopback;
+    // Safari discards it, and sign-in then failed with no error at all --
+    // a 200, a redirect, and straight back to the passcode screen.
+    secure: isSecureRequest(request),
     sameSite: "lax", // Not sent on a cross-site POST
     path: "/",
     maxAge: ACCESS_TTL_SECONDS,

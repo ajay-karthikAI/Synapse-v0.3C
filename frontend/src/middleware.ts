@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { isLoopbackHost, isSecureRequest } from "@/lib/secure-context";
 import { ACCESS_COOKIE, verifyAccessToken } from "@/lib/session";
 
 /**
@@ -38,7 +39,7 @@ const PUBLIC_PATHS = new Set(["/access", "/transparency"]);
 /** Where an unauthenticated caller is sent. */
 const ACCESS_PATH = "/access";
 
-function buildCsp(nonce: string, isProduction: boolean): string {
+function buildCsp(nonce: string, isProduction: boolean, upgradeInsecure: boolean): string {
   const directives = [
     "default-src 'self'",
     // `'strict-dynamic'` makes the nonce transitive to chunks Next loads.
@@ -60,16 +61,44 @@ function buildCsp(nonce: string, isProduction: boolean): string {
     "worker-src 'self' blob:",
     "manifest-src 'self'",
   ];
-  if (isProduction) directives.push("upgrade-insecure-requests");
+  // Sent only where the app is actually reachable over HTTPS.
+  //
+  // `NODE_ENV === "production"` is NOT that test. `next start` sets it too, and
+  // `next start` is the documented way to run this locally, because `next dev`
+  // breaks under the nonce CSP. Chrome exempts loopback from this directive;
+  // Safari does not — so running locally, Safari upgraded every stylesheet,
+  // script and font to `https://127.0.0.1:3210`, got an SSL error on each, and
+  // rendered the page as unstyled HTML while Chrome looked perfect.
+  if (upgradeInsecure) directives.push("upgrade-insecure-requests");
   return directives.join("; ");
 }
 
+/**
+ * Two years, and it applies to the whole host regardless of port.
+ *
+ * Emitted only when the response is genuinely travelling over HTTPS. Sent over
+ * plain HTTP to a loopback address, Safari records the pin anyway and every
+ * subsequent local run is upgraded to `https://127.0.0.1`, where nothing is
+ * listening. Chrome ignores it there, which is what let this ship unnoticed.
+ */
+const HSTS = "max-age=63072000; includeSubDomains; preload";
+
 export async function middleware(request: NextRequest) {
   const isProduction = process.env.NODE_ENV === "production";
+  const secure = isSecureRequest(request);
+  // Decided from the request, so it is right without anyone configuring it.
+  const upgradeInsecure = isProduction && !isLoopbackHost(request.nextUrl.host);
 
   // 16 random bytes, base64. `crypto` is Web Crypto on the Edge runtime.
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
-  const csp = buildCsp(nonce, isProduction);
+  const csp = buildCsp(nonce, isProduction, upgradeInsecure);
+
+  /** Every response leaves through here, so neither header can be missed. */
+  const harden = <T extends { headers: Headers }>(response: T): T => {
+    response.headers.set("content-security-policy", csp);
+    if (secure) response.headers.set("strict-transport-security", HSTS);
+    return response;
+  };
 
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(ACCESS_COOKIE)?.value;
@@ -94,8 +123,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = ACCESS_PATH;
     url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
-    const redirect = NextResponse.redirect(url);
-    redirect.headers.set("content-security-policy", csp);
+    const redirect = harden(NextResponse.redirect(url));
     // A cookie that failed verification is cleared rather than left to fail
     // again on every subsequent request.
     if (token) redirect.cookies.delete(ACCESS_COOKIE);
@@ -107,14 +135,10 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";
-    const redirect = NextResponse.redirect(url);
-    redirect.headers.set("content-security-policy", csp);
-    return redirect;
+    return harden(NextResponse.redirect(url));
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("content-security-policy", csp);
-  return response;
+  return harden(NextResponse.next({ request: { headers: requestHeaders } }));
 }
 
 export const config = {

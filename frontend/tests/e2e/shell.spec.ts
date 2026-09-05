@@ -169,14 +169,30 @@ test.describe("security headers", () => {
     expect(nonceOf(first)).not.toBe(nonceOf(second));
   });
 
-  test("HSTS is emitted by a production build", async ({ page }) => {
-    // These specs run `next start` over a production build, which is the
-    // configuration that ships. A browser ignores HSTS delivered over plain
-    // HTTP, so serving it to this local server is harmless; the header being
-    // absent from a DEVELOPMENT build is what `next.config.ts` guards, and a
-    // dev server is not what is under test here.
+  test("HSTS is NOT emitted over plain HTTP on loopback", async ({ page }) => {
+    /**
+     * This test used to assert the opposite, on the reasoning that "a browser
+     * ignores HSTS delivered over plain HTTP, so serving it to this local
+     * server is harmless."
+     *
+     * That is not true of Safari. It recorded the pin from `next start` — which
+     * sets NODE_ENV=production and is the documented way to run this locally —
+     * and then upgraded every asset to `https://127.0.0.1:3210`, where nothing
+     * listens. The page rendered as unstyled HTML, for two years, from one
+     * local run. Chrome exempts loopback, so it looked fine there.
+     */
     const response = await page.goto("/access");
-    const hsts = response?.headers()["strict-transport-security"] ?? "";
+    expect(response?.headers()["strict-transport-security"]).toBeUndefined();
+  });
+
+  test("HSTS IS emitted for a request that arrived over HTTPS", async ({ request }) => {
+    // The other half, and the one that must not be lost: a real deployment
+    // still gets the header. Simulated with the headers a TLS-terminating
+    // proxy sends, since these specs can only serve plain HTTP.
+    const response = await request.get("/access", {
+      headers: { host: "synapse.example.com", "x-forwarded-proto": "https" },
+    });
+    const hsts = response.headers()["strict-transport-security"] ?? "";
     expect(hsts).toContain("max-age=63072000");
     expect(hsts).toContain("includeSubDomains");
   });

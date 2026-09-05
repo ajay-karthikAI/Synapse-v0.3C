@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { callBackend } from "@/lib/backend";
 import { ACCESS_COOKIE } from "@/lib/session";
+import { isSecureRequest } from "@/lib/secure-context";
 
 /**
  * End the session.
@@ -48,7 +49,9 @@ export async function POST(request: Request) {
     name: ACCESS_COOKIE,
     value: "",
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Must match how the cookie was SET, or the browser keeps the old one
+    // and "sign out" leaves the session in place. See lib/secure-context.
+    secure: isSecureRequest(request),
     sameSite: "lax",
     path: "/",
     maxAge: 0,
