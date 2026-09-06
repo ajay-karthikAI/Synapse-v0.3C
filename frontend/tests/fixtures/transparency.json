@@ -38,7 +38,7 @@
   },
   "system": {
     "answer_model": "gpt-4o-mini",
-    "answer_prompt_version": "grounded-answer-v3",
+    "answer_prompt_version": "grounded-answer-v4",
     "application_version": "0.1.0",
     "generated_at": "2026-01-01T00:00:00+00:00",
     "model_version_note": "Model aliases move. An alias resolving to a different checkpoint changes behaviour with no change to this deployment, and nothing here detects that.",

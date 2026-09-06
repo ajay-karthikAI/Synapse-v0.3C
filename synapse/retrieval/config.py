@@ -96,10 +96,18 @@ class RerankConfig:
     enabled: bool = True
     model: str = "gpt-4o-mini"
     prompt_id: str = "rerank-batched-v1"  # Versioned; changing the prompt changes this
-    top_k: int = 5  # Candidates kept after reranking.
-    # Raised from 3 after measuring: with three passages the model produced a
-    # single claim per question, and every one of them verified. Verification
+    top_k: int = 8  # Candidates kept after reranking.
+    # Raised from 3 to 5 after measuring: with three passages the model produced
+    # a single claim per question, and every one of them verified. Verification
     # was not the constraint on answer length; the evidence supply was.
+    #
+    # Raised again, 5 to 8, for the same reason. Five passages yielded two
+    # claims on a real turn while the prompt asked for three to six, so the
+    # ceiling was still the evidence rather than the instruction. Eight is the
+    # most that can be kept without also raising `final_top_k` (10), which is
+    # what bounds the single rerank request -- so this stays one bounded call
+    # over a bounded candidate set, and the answer layer still discards any
+    # claim whose quote is not found verbatim.
 
     connect_timeout: float = 5.0  # Time allowed to establish a connection
     read_timeout: float = 20.0  # Time allowed for the response body
