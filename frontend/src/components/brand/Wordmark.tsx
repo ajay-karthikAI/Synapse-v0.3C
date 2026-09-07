@@ -46,7 +46,6 @@ export function Wordmark({ size = "compact", href, animate = true }: WordmarkPro
           */}
           <span className={animate ? "brandmark-type" : undefined}>Synapse</span>
         </h1>
-        <p className="attribution mt-3">A Zenith Company</p>
       </div>
     );
   }
@@ -65,7 +64,7 @@ export function Wordmark({ size = "compact", href, animate = true }: WordmarkPro
       <Link
         href={href}
         className="rounded-[12px] no-underline"
-        aria-label="Synapse, a Zenith company — home"
+        aria-label="Synapse — home"
       >
         {content}
       </Link>

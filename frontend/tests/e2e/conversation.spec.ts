@@ -656,16 +656,33 @@ test.describe("transparency", () => {
     await expect(article.getByText(/sources currently served are UNREVIEWED/)).toBeVisible();
   });
 
-  test("covers intended use, exclusions, safety, privacy and architecture", async ({ page }) => {
+  test("covers intended use, exclusions, safety and what it does not protect", async ({
+    page,
+  }) => {
     await page.goto("/transparency");
     for (const heading of [
       "What it is for",
       "What it is not for",
       "Where the system stops itself",
-      "Where your words go",
-      "How it is put together",
+      "What this does not protect you from",
     ]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    }
+  });
+
+  test("no longer publishes the data-flow walkthrough or the build metadata", async ({ page }) => {
+    // Removed deliberately. The disclosures that carry weight -- no HIPAA
+    // agreement, text leaving for a model provider, a shared passcode -- are
+    // kept under "What this does not protect you from", and the identifier
+    // warning on the question screen still says the question is sent to a
+    // model provider.
+    await page.goto("/transparency");
+    for (const heading of ["Where your words go", "How it is put together"]) {
+      await expect(page.getByRole("heading", { name: heading })).toHaveCount(0);
+    }
+    const body = (await page.locator("article").textContent()) ?? "";
+    for (const label of ["Answer prompt", "Model version pinned", "Questions written to logs"]) {
+      expect(body).not.toContain(label);
     }
   });
 

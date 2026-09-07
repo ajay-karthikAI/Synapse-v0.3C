@@ -243,11 +243,13 @@ test.describe("the proxy", () => {
 });
 
 test.describe("the branded shell", () => {
-  test("shows the mark, the name and the attribution", async ({ page }) => {
+  test("shows the mark and the name, with no attribution under it", async ({ page }) => {
     await page.goto("/access");
     await expect(page.getByText("Synapse").first()).toBeVisible();
-    await expect(page.getByText("A Zenith Company").first()).toBeVisible();
     await expect(page.locator("svg[aria-hidden='true']").first()).toBeAttached();
+    // The byline lives in the footer only. Under the product name it read as
+    // part of the name rather than as a byline.
+    await expect(page.locator("main").getByText(/Zenith/)).toHaveCount(0);
   });
 
   test("the mark sits above the name, centred", async ({ page }) => {

@@ -334,22 +334,19 @@ describe("assistive technology", () => {
 });
 
 describe("the wordmark", () => {
-  it("names the product in the hero, with the attribution beneath it", () => {
+  it("names the product in the hero", () => {
     render(<Wordmark size="hero" />);
     expect(screen.getByText("Synapse")).toBeInTheDocument();
-    expect(screen.getByText("A Zenith Company")).toBeInTheDocument();
   });
 
-  it("drops the attribution in the compact header", () => {
-    // It already appears in the hero and again in the footer.
+  it("carries no corporate attribution", () => {
+    // "A Zenith Company" was removed from the mark. The footer still carries
+    // the attribution once, which is where a byline belongs; repeating it under
+    // the product name made it read as part of the name.
+    render(<Wordmark size="hero" />);
+    expect(screen.queryByText(/Zenith/)).toBeNull();
     render(<Wordmark />);
-    expect(screen.getByText("Synapse")).toBeInTheDocument();
-    expect(screen.queryByText("A Zenith Company")).toBeNull();
-  });
-
-  it("sets the attribution as an attribution, not a claim", () => {
-    render(<Wordmark size="hero" />);
-    expect(screen.getByText("A Zenith Company")).toHaveClass("attribution");
+    expect(screen.queryByText(/Zenith/)).toBeNull();
   });
 
   it("sets the name in the display serif at hero size", () => {

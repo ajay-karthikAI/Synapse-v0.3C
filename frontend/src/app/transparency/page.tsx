@@ -176,33 +176,9 @@ export default async function TransparencyPage() {
         </ul>
       </Section>
 
-      {/* --- Data flow and privacy --- */}
-      <Section id="privacy" title="Where your words go">
-        <ol className="space-y-3 text-[16px] leading-relaxed text-ink">
-          <li>
-            <strong className="font-semibold">1.</strong> Your question goes from
-            your browser to this site&rsquo;s own server.
-          </li>
-          <li>
-            <strong className="font-semibold">2.</strong> That server — never
-            your browser — passes it to the Synapse backend.
-          </li>
-          <li>
-            <strong className="font-semibold">3.</strong> The backend sends it to
-            OpenAI, which is used to search, rank and write the answer. Your
-            words leave this system at that point and are subject to
-            OpenAI&rsquo;s terms.
-          </li>
-          <li>
-            <strong className="font-semibold">4.</strong> The result is checked,
-            then returned to you.
-          </li>
-        </ol>
-        {data ? <PrivacySection privacy={data.privacy} /> : null}
-        <h3 className="mt-8 text-[15px] font-semibold text-display">
-          What this does not protect you from
-        </h3>
-        <ul className="mt-3 space-y-2.5 text-[15px] leading-relaxed text-ink-secondary">
+      {/* --- What the deployment does not protect against --- */}
+      <Section id="privacy" title="What this does not protect you from">
+        <ul className="space-y-2.5 space-y-2.5 text-[15px] leading-relaxed text-ink-secondary">
           <li>
             This is not a HIPAA-compliant service and has no agreement covering
             personal health information. Do not enter anything that identifies
@@ -223,17 +199,6 @@ export default async function TransparencyPage() {
         </ul>
       </Section>
 
-      {/* --- Architecture and versions --- */}
-      <Section id="architecture" title="How it is put together">
-        <p className="text-[16px] leading-relaxed text-ink">
-          A browser talks only to this site. This site&rsquo;s server holds the
-          credentials and is the only thing that talks to the Synapse backend,
-          which is a single container serving a verified, read-only research
-          index. There is no database: a conversation lives in memory and is gone
-          on restart or after two hours of inactivity.
-        </p>
-        {data ? <SystemSection system={data.system} version={data.application_version} /> : null}
-      </Section>
     </article>
   );
 }
@@ -356,43 +321,6 @@ function EvaluationSection({ evaluation }: { evaluation: object }) {
   );
 }
 
-function PrivacySection({ privacy }: { privacy: object }) {
-  const idle = field(privacy, "session_idle_expiry_seconds");
-  const hours = typeof idle === "number" ? Math.round(idle / 3600) : null;
-  return (
-    <dl className="mt-6 space-y-3">
-      <Row label="Questions written to disk" value={yesNo(field(privacy, "query_text_written_to_disk"))} />
-      <Row label="Questions written to logs" value={yesNo(field(privacy, "query_text_logged"))} />
-      <Row label="Conversation stored" value={yesNo(field(privacy, "conversation_persisted"))} />
-      <Row label="Third-party analytics" value={yesNo(field(privacy, "third_party_analytics"))} />
-      <Row label="Error-reporting service" value={yesNo(field(privacy, "error_reporting_service"))} />
-      {hours !== null ? (
-        <Row label="Session forgotten after" value={`${hours} hours idle`} />
-      ) : null}
-    </dl>
-  );
-}
-
-function SystemSection({ system, version }: { system: object; version: string }) {
-  const readiness = field(system, "readiness");
-  const state =
-    typeof readiness === "object" && readiness !== null ? field(readiness, "state") : undefined;
-  return (
-    <>
-      <dl className="mt-6 space-y-3">
-        <Row label="Application version" value={version} />
-        <Row label="Answer model" value={text(field(system, "answer_model"))} />
-        <Row label="Answer prompt" value={text(field(system, "answer_prompt_version"))} />
-        <Row label="Ranking prompt" value={text(field(system, "rerank_prompt_version"))} />
-        <Row label="Model version pinned" value={yesNo(field(system, "model_versions_pinned"))} />
-        {state !== undefined ? <Row label="Readiness" value={text(state)} /> : null}
-      </dl>
-      <p className="mt-5 text-[14px] leading-relaxed text-ink-secondary">
-        {text(field(system, "model_version_note"))}
-      </p>
-    </>
-  );
-}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -403,8 +331,3 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function yesNo(value: unknown): string {
-  if (value === true) return "Yes";
-  if (value === false) return "No";
-  return "—";
-}
