@@ -69,8 +69,8 @@ export default async function TransparencyPage() {
       </h1>
       <p className="mt-5 text-lg leading-relaxed text-ink-secondary">
         Synapse is a medical AI chatbot that searches published research to
-        answer the patient&rsquo;s questions. It also guides the patient&rsquo;s
-        care by providing questions to ask their physician.
+        answer the patient&rsquo;s questions. It also suggests questions to
+        raise with their physician.
       </p>
 
       {data === null ? (
