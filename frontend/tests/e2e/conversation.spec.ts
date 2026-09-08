@@ -647,7 +647,7 @@ test.describe("transparency", () => {
     // The backend genuinely is not running: the page must still disclose.
     await page.goto("/transparency");
 
-    await expect(page.getByRole("heading", { name: /How this works/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "About Synapse" })).toBeVisible();
     // Scoped to the article: the site footer carries its own standing
     // disclaimer, which says the same thing and is not what this asserts.
     const article = page.locator("main article");

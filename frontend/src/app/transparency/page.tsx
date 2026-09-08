@@ -4,7 +4,7 @@ import type { Transparency } from "@/lib/envelope";
 import { callBackend } from "@/lib/backend";
 import { isConfigured } from "@/lib/env";
 
-export const metadata: Metadata = { title: "How this works" };
+export const metadata: Metadata = { title: "About Synapse" };
 // The payload reports what this deployment is running right now, including its
 // readiness and its last evaluation. A cached copy would eventually describe a
 // deployment that no longer exists.
@@ -65,11 +65,12 @@ export default async function TransparencyPage() {
   return (
     <article className="mx-auto w-full max-w-2xl px-5 pb-24 pt-14 sm:pt-20">
       <h1 className="font-display text-[2.5rem] leading-[1.1] font-semibold text-display sm:text-[3rem]">
-        How this works, and what it cannot do
+        About Synapse
       </h1>
       <p className="mt-5 text-lg leading-relaxed text-ink-secondary">
-        Synapse searches published research and shows what it found, with the
-        passage every statement came from. This page records what that is worth.
+        Synapse is a medical AI chatbot that searches published research to
+        answer the patient&rsquo;s questions. It also guides the patient&rsquo;s
+        care by providing questions to ask their physician.
       </p>
 
       {data === null ? (
@@ -216,7 +217,11 @@ function Section({
     <section aria-labelledby={id} className="mt-14">
       <h2
         id={id}
-        className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-secondary"
+        // Display serif, as on the question screen. Sized between the body
+        // (16px) and the page title (40-48px), and no longer uppercase: wide
+        // tracking on small caps is an eyebrow label, which is not what these
+        // are now that they carry the serif and the display ink.
+        className="font-display text-[1.375rem] leading-snug font-semibold text-display sm:text-[1.5rem]"
       >
         {title}
       </h2>
