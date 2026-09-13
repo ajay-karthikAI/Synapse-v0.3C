@@ -102,8 +102,12 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Discard the session
-         * @description Forget everything held for this session.
+         * Discard the conversation
+         * @description Forget the turns, the briefs and the replay record. Keep the session.
+         *
+         *     ``deleted`` stays true because the thing a patient cares about -- what was
+         *     said -- really is gone. See :meth:`synapse.api.sessions.Session.clear` for
+         *     why the session record itself has to outlive it.
          */
         delete: operations["delete_session_v1_session_delete"];
         options?: never;

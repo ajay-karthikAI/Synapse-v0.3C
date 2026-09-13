@@ -1052,7 +1052,7 @@
     },
     "/v1/session": {
       "delete": {
-        "description": "Forget everything held for this session.",
+        "description": "Forget the turns, the briefs and the replay record. Keep the session.\n\n``deleted`` stays true because the thing a patient cares about -- what was\nsaid -- really is gone. See :meth:`synapse.api.sessions.Session.clear` for\nwhy the session record itself has to outlive it.",
         "operationId": "delete_session_v1_session_delete",
         "responses": {
           "200": {
@@ -1066,7 +1066,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Discard the session",
+        "summary": "Discard the conversation",
         "tags": [
           "session"
         ]

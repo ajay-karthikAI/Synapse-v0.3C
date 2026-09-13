@@ -1,0 +1,52 @@
+%% Synapse architecture, working-tree review 2026-09-11
+%% See architecture.md for detailed flows, code links, and implementation notes.
+flowchart TB
+    Patient["Patient browser<br/>Question, conversation, citations, brief editor"]
+
+    subgraph Web["Web application · Next.js / React / TypeScript · configured for Vercel"]
+        Frontend["Pages and React components<br/>Access · Chat · Evidence · Brief · Transparency"]
+        Proxy["Same-origin server routes<br/>JWT checks · path allow-list · service token"]
+        Frontend <-->|"JSON / SSE / downloads"| Proxy
+    end
+
+    subgraph Backend["API application · FastAPI / Python · configured for Render · one worker"]
+        HTTP["HTTP boundary<br/>Passcode login · auth · readiness · SSE"]
+        Sessions[("Process memory<br/>Conversation · emergency latch<br/>briefs · recent request results")]
+        Service["SynapseService<br/>Context + source eligibility + turn orchestration"]
+        Pipeline["Answer pipeline<br/>Emergency check → retrieval → generation<br/>→ citation verification → display policy"]
+        Brief["Appointment brief service<br/>Build from checked answer<br/>Apply patient edits · render exports"]
+        Transparency["Transparency service<br/>Source states · evaluation summary<br/>runtime metadata · disclosures"]
+        Runtime["Runtime loader<br/>Verify pinned archive + corpus + FAISS<br/>Build BM25 · publish readiness"]
+        Index[("Artifact cache + loaded indexes<br/>JSONL corpus · FAISS · in-memory BM25")]
+        Telemetry["Telemetry + logging<br/>Typed events · timings · counts<br/>Optional sinks; see implementation notes"]
+        HTTP <--> Sessions
+        HTTP --> Service --> Pipeline
+        Sessions -.->|"server-owned history"| Service
+        HTTP --> Brief
+        Brief <--> Sessions
+        HTTP --> Transparency
+        Runtime --> Index --> Pipeline
+        Runtime -.->|"startup verdict"| HTTP
+        Runtime -.->|"readiness metadata"| Transparency
+        Pipeline -.->|"content-free measurements"| Telemetry
+    end
+
+    OpenAI["OpenAI API<br/>Query embeddings · follow-up rewrite<br/>Batched rerank · structured generation"]
+    Bucket[("S3-compatible object storage<br/>Pinned runtime archive; S3 or R2 endpoint")]
+    Offline["Offline corpus + artifact tools<br/>Ingest / migrate · verify · package · upload"]
+    Pack[("Source-pack files<br/>Review records · eligibility policy")]
+    Quality["Evaluation + GitHub Actions<br/>Fixtures · benchmarks · quality gates<br/>Python / frontend / container checks"]
+    Local["Local Streamlit fallback<br/>app.py + legacy index adapter"]
+    Export["Patient-owned HTML / text / JSON<br/>Browser print-to-PDF → appointment"]
+
+    Patient <--> Frontend
+    Proxy <-->|"Service token + access JWT<br/>JSON / SSE"| HTTP
+    Pipeline <-->|"Questions / context / research passages"| OpenAI
+    Offline -->|"archive + SHA-256 pin"| Bucket
+    Bucket -->|"startup download or cache reuse"| Runtime
+    Pack -.->|"conditional document allow-list"| Service
+    Pack -.-> Transparency
+    Quality -.->|"summary files when provisioned"| Transparency
+    Quality -.->|"engineering checks"| Offline
+    Local -.->|"same application service"| Service
+    Brief -->|"download through API and proxy"| Export

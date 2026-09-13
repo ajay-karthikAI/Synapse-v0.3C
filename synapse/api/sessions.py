@@ -160,6 +160,37 @@ class Session:
         with self.lock:
             return self._idempotency.get(client_request_id)
 
+    def clear(self) -> None:
+        """Forget the conversation, keeping the session itself alive.
+
+        This is what "Clear this conversation" means, and it is deliberately
+        NOT :meth:`SessionStore.delete`.
+
+        The access cookie is a JWT naming ONE session id for its full eight
+        hours, and a session is created in exactly one place -- at login. So
+        destroying the session left the caller holding a valid token pointing at
+        something that no longer existed; the next request failed
+        ``SessionNotFound``, which is reported as 401 (indistinguishable from a
+        forged token, on purpose). Clearing the conversation therefore signed
+        the patient out and told them their session had expired, with no way
+        back except the passcode.
+
+        Everything a patient would recognise as their conversation goes: the
+        turns, the briefs built from them, and the idempotency record that could
+        replay a previous answer. The identity and the clocks stay, because they
+        are what the cookie is bound to. Nothing is archived -- there is nowhere
+        to archive it to.
+
+        ``created_at`` is NOT reset: the eight-hour cookie keeps running, and
+        pretending a cleared session is a new one would extend an access grant
+        by clearing the screen.
+        """
+        with self.lock:
+            self.conversation = Conversation()
+            self.briefs.clear()
+            self._idempotency.clear()
+            self._turn_active = False
+
     def set_brief(self, turn_index: int, brief: AppointmentBrief) -> None:
         """Store the server-owned brief for a turn."""
         with self.lock:

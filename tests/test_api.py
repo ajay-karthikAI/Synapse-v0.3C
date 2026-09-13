@@ -291,12 +291,46 @@ class TestSessionIsolation:
         # The second session has no turn 0 at all, so there is nothing to read.
         assert client.get("/v1/turns/0/brief", headers=second).status_code == 404
 
-    def test_deleting_a_session_discards_its_state(self) -> None:
+    def test_clearing_discards_the_conversation_but_keeps_the_session(self) -> None:
+        """The regression: clearing used to sign the patient out.
+
+        The access cookie names ONE session id for eight hours, and a session is
+        created only at login. Destroying the session on DELETE left the caller
+        holding a valid token pointing at nothing, so the next request was 401 --
+        and the interface told someone who had just pressed "Clear this
+        conversation" that their session had expired, with no way back except
+        the passcode.
+        """
         client = api()
         headers = authed(client)
         ask(client, headers, QUERY)
+        assert client.get("/v1/session", headers=headers).json()["turn_count"] == 1
+
         assert client.delete("/v1/session", headers=headers).json()["deleted"] is True
-        assert client.get("/v1/session", headers=headers).status_code == 401
+
+        # The conversation is gone...
+        after = client.get("/v1/session", headers=headers)
+        assert after.status_code == 200, "clearing must not invalidate the access token"
+        assert after.json()["turn_count"] == 0
+        # ...and the same token can still be used, which is the whole point.
+        ask(client, headers, QUERY)
+        assert client.get("/v1/session", headers=headers).json()["turn_count"] == 1
+
+    def test_clearing_drops_the_replay_record_so_a_turn_is_not_replayed(self) -> None:
+        """A cleared conversation must not answer from the one before it.
+
+        The idempotency map is keyed by client_request_id. Left in place, the
+        first question after a clear could be served the previous answer.
+        """
+        client = api()
+        headers = authed(client)
+        first = ask(client, headers, QUERY)
+        client.delete("/v1/session", headers=headers)
+        again = ask(client, headers, QUERY)
+        # Both are turn 0 of their own conversation: the second was genuinely
+        # run rather than replayed out of the cleared session.
+        assert first.status_code == 200 and again.status_code == 200
+        assert client.get("/v1/session", headers=headers).json()["turn_count"] == 1
 
 
 class TestSessionLimits:

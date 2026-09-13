@@ -28,9 +28,8 @@ export function SiteFooter() {
             href="/transparency"
             className="text-[13px] text-accent underline-offset-4 hover:underline"
           >
-            How this works, and what it cannot do
+            About Synapse
           </Link>
-          <span className="attribution">Zenith</span>
         </div>
       </div>
     </footer>

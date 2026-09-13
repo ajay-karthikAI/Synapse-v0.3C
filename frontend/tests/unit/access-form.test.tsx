@@ -141,7 +141,7 @@ describe("refusals", () => {
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("That passcode was not accepted."),
+      expect(screen.getByRole("status")).toHaveTextContent("Wrong Password. Please try again or contact the front desk."),
     );
   });
 
@@ -155,7 +155,7 @@ describe("refusals", () => {
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("That passcode was not accepted."),
+      expect(screen.getByRole("status")).toHaveTextContent("Wrong Password. Please try again or contact the front desk."),
     );
   });
 
@@ -192,7 +192,7 @@ describe("refusals", () => {
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("That passcode was not accepted."),
+      expect(screen.getByRole("status")).toHaveTextContent("Wrong Password. Please try again or contact the front desk."),
     );
     // The exception's text names an internal address. It must not reach the page.
     expect(document.body.textContent).not.toContain("ECONNREFUSED");
@@ -207,7 +207,11 @@ describe("refusals", () => {
     await user.type(screen.getByLabelText("Access passcode"), "wrong");
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/not accepted/i));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Wrong Password. Please try again or contact the front desk.",
+      ),
+    );
     expect(router.replace).not.toHaveBeenCalled();
   });
 });

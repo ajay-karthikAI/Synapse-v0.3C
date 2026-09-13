@@ -16,7 +16,7 @@ import { useState } from "react";
  * a patient must be told about because the remedy is to wait rather than retry.
  */
 
-const GENERIC_FAILURE = "That passcode was not accepted.";
+const GENERIC_FAILURE = "Wrong Password. Please try again or contact the front desk.";
 const LOCKED_OUT =
   "Too many attempts have been made from this location. Please wait a few minutes and try again.";
 

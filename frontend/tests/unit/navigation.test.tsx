@@ -133,7 +133,7 @@ describe("the footer", () => {
 
   it("routes to the transparency page", () => {
     render(<SiteFooter />);
-    expect(screen.getByRole("link", { name: /how this works/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "About Synapse" })).toHaveAttribute(
       "href",
       "/transparency",
     );
