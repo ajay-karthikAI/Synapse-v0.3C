@@ -26,10 +26,12 @@ export function SiteFooter() {
         <div className="mt-5 flex flex-col items-center gap-3 text-center">
           <Link
             href="/transparency"
+            aria-label="About Synapse"
             className="text-[13px] text-accent underline-offset-4 hover:underline"
           >
-            About Synapse
+            How this works, and what it cannot do
           </Link>
+          <span className="attribution">Zenith</span>
         </div>
       </div>
     </footer>

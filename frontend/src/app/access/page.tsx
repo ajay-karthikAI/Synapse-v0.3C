@@ -34,8 +34,8 @@ export default async function AccessPage({
       <Wordmark size="hero" />
 
       <p className="mt-8 text-center text-[17px] leading-relaxed text-ink-secondary">
-        This is a private demonstration of Synapse, a pre-clinical research
-        prototype. It has not been clinically validated.
+        A private demonstration. Synapse is a pre-clinical prototype — not a
+        medical device, and not clinically validated.
       </p>
 
       <div className="mt-10">

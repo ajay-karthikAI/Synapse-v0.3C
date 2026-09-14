@@ -62,13 +62,16 @@ export default function HomePage() {
 
       <div className="mx-auto mt-12 max-w-xl px-5 pb-20 text-center">
         <h2 className="font-display text-lg font-semibold text-display">
-          What Synapse does not do
+          What it will not do
         </h2>
         <ul className="mt-4 space-y-2.5 text-[15px] leading-relaxed text-ink-secondary">
-          <li>Diagnose medical conditions.</li>
-          <li>Assess the urgency of symptoms.</li>
-          <li>Recommend starting, stopping, or changing medication.</li>
-          <li>Provide answers when the available evidence is insufficient.</li>
+          <li>Diagnose, or tell you what you have.</li>
+          <li>Tell you how urgent something is.</li>
+          <li>Advise starting, stopping or changing a medicine.</li>
+          <li>
+            Answer when the evidence is thin — it says so instead, which is a
+            result, not a failure.
+          </li>
         </ul>
       </div>
     </div>
