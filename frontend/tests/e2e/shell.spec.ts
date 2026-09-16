@@ -247,9 +247,7 @@ test.describe("the branded shell", () => {
     await page.goto("/access");
     await expect(page.getByText("Synapse").first()).toBeVisible();
     await expect(page.locator("svg[aria-hidden='true']").first()).toBeAttached();
-    // The byline lives in the footer only. Under the product name it read as
-    // part of the name rather than as a byline.
-    await expect(page.locator("main").getByText(/Zenith/)).toHaveCount(0);
+    await expect(page.locator("main .attribution")).toHaveCount(0);
   });
 
   test("the mark sits above the name, centred", async ({ page }) => {

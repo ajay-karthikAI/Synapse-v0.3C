@@ -65,7 +65,7 @@ async function open(desktop: boolean, overrides: Partial<Brief> = {}) {
   vi.stubGlobal("fetch", fetchMock);
   const onClose = vi.fn();
   const user = userEvent.setup();
-  render(<BriefPanel turnIndex={0} open onClose={onClose} />);
+  render(<BriefPanel open onClose={onClose} />);
   await screen.findByRole("heading", { name: /your appointment brief/i });
   return { calls, fetchMock, onClose, user };
 }
@@ -135,39 +135,44 @@ describe("desktop: a side panel", () => {
   });
 });
 
-describe("the patient's own fields", () => {
-  it("sends the topic as one named operation on blur", async () => {
-    const { calls, user } = await open(false);
-    const topic = screen.getByLabelText(/what you want to talk about/i);
-    await user.type(topic, "my blood sugar");
-    await user.tab();
-
-    await waitFor(() => {
-      const put = calls.find((call) => call.url.includes("/topic"));
-      expect(put).toBeDefined();
-      expect(put!.method).toBe("PUT");
-      // One field. Not a brief.
-      expect(put!.body).toEqual({ topic: "my blood sugar" });
-    });
+describe("the panel asks for one thing", () => {
+  /**
+   * It used to open with a "what you want to talk about" line and a blank
+   * notes box. Both are gone: a patient whose question has just been answered
+   * was being asked to type the question in again, and the notes box was an
+   * empty page with no prompt. The contract still accepts both fields — the
+   * panel simply does not offer them.
+   */
+  it("offers no topic or notes field", async () => {
+    await open(false);
+    expect(screen.queryByLabelText(/what you want to talk about/i)).toBeNull();
+    expect(screen.queryByLabelText(/your notes/i)).toBeNull();
   });
 
-  it("sends the notes as one named operation", async () => {
+  it("never writes a topic or a note", async () => {
     const { calls, user } = await open(false);
-    await user.type(screen.getByLabelText(/your notes/i), "started last week");
-    await user.tab();
+    await user.type(screen.getByLabelText(/add a question of your own/i), "Is this normal?");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
 
-    await waitFor(() => {
-      const put = calls.find((call) => call.url.includes("/notes"));
-      expect(put!.body).toEqual({ notes: "started last week" });
-    });
-  });
-
-  it("does not write on every keystroke", async () => {
-    // Each write carries the patient's own words. One request per character
-    // would be one transmission of their notes per character.
-    const { calls, user } = await open(false);
-    await user.type(screen.getByLabelText(/your notes/i), "hello");
+    await waitFor(() => expect(calls.some((call) => call.url.includes("/questions"))).toBe(true));
+    expect(calls.filter((call) => call.url.includes("/topic"))).toHaveLength(0);
     expect(calls.filter((call) => call.url.includes("/notes"))).toHaveLength(0);
+  });
+
+  it("asks whether the patient wants to add their own questions", async () => {
+    await open(false);
+    expect(
+      screen.getByRole("heading", {
+        name: /would you like to add more questions for your physician\?/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps an accessible name on the input the heading sits above", async () => {
+    // A heading is not a label: without this the box announces nothing to a
+    // screen reader arriving by Tab.
+    await open(false);
+    expect(screen.getByLabelText(/add a question of your own/i)).toBeInTheDocument();
   });
 });
 
@@ -239,28 +244,66 @@ describe("questions: add, remove, reorder", () => {
   });
 });
 
-describe("sections", () => {
-  it("sends the complete section list when one is toggled", async () => {
+describe("add-ons", () => {
+  /**
+   * The panel used to list every section with every box ticked, which is how
+   * the brief became a nine-section engineering document: a patient was asked
+   * to decide about "claims", "sources" and "limitations" separately and had no
+   * basis for any of those decisions. There are two choices now.
+   */
+  it("offers exactly two, and both start off", async () => {
+    await open(false);
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(2);
+    for (const box of boxes) expect(box).not.toBeChecked();
+  });
+
+  it("names them in the patient's terms", async () => {
+    await open(false);
+    expect(screen.getByRole("checkbox", { name: /your conversation/i })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /the research behind it/i })).toBeInTheDocument();
+  });
+
+  it("turning the transcript on sends the defaults plus transcript", async () => {
     const fixture = briefFixture();
     const { calls, user } = await open(false);
-    const first = fixture.available_sections[0]!;
-
-    const checkbox = screen.getAllByRole("checkbox")[0]!;
-    await user.click(checkbox);
+    await user.click(screen.getByRole("checkbox", { name: /your conversation/i }));
 
     await waitFor(() => {
       const put = calls.find((call) => call.url.includes("/sections"));
       expect(put).toBeDefined();
-      expect(Array.isArray((put!.body as { sections: string[] }).sections)).toBe(true);
-      expect((put!.body as { sections: string[] }).sections).not.toContain(
-        fixture.included_sections.includes(first) ? first : "__never__",
-      );
+      const sent = (put!.body as { sections: string[] }).sections;
+      expect(sent).toContain("transcript");
+      for (const section of fixture.default_sections) expect(sent).toContain(section);
     });
   });
 
-  it("says the disclaimer cannot be removed", async () => {
+  it("turning the research on sends every research section at once", async () => {
+    const fixture = briefFixture();
+    const { calls, user } = await open(false);
+    await user.click(screen.getByRole("checkbox", { name: /the research behind it/i }));
+
+    await waitFor(() => {
+      const put = calls.find((call) => call.url.includes("/sections"));
+      expect(put).toBeDefined();
+      const sent = (put!.body as { sections: string[] }).sections;
+      // Derived from the contract: everything available but not default, less
+      // the transcript. Hard-coding the list here would let this file and the
+      // server disagree about what "the research" is.
+      const research = fixture.available_sections.filter(
+        (section) => !fixture.default_sections.includes(section) && section !== "transcript",
+      );
+      expect(research.length).toBeGreaterThan(0);
+      for (const section of research) expect(sent).toContain(section);
+      expect(sent).not.toContain("transcript");
+    });
+  });
+
+  it("says what is always included", async () => {
     await open(false);
-    expect(screen.getByText(/disclaimer is always printed and cannot be removed/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/summary, your questions and the disclaimer are always included/i),
+    ).toBeInTheDocument();
   });
 
   it("offers no checkbox for the disclaimer", async () => {
@@ -268,6 +311,11 @@ describe("sections", () => {
     // contain it, so there is nothing to switch off.
     const fixture = briefFixture();
     expect(fixture.available_sections).not.toContain("disclaimer");
+  });
+
+  it("counts the conversation in the transcript description", async () => {
+    await open(false, { transcript_turn_count: 3 });
+    expect(screen.getByText(/all 3 questions you asked/i)).toBeInTheDocument();
   });
 });
 
@@ -288,17 +336,23 @@ describe("overflow guidance", () => {
 });
 
 describe("exports", () => {
-  it("offers all three formats as real links to the proxy", async () => {
+  it("leads with the PDF, because that is what a phone can save", async () => {
+    await open(false);
+    const link = screen.getByRole("link", { name: /download the pdf/i });
+    // A real href, so the browser saves it with the server's own
+    // Content-Disposition filename and content type.
+    expect(link).toHaveAttribute("href", "/api/proxy/v1/brief/export/pdf");
+  });
+
+  it("keeps the other three formats as secondary links", async () => {
     await open(false);
     for (const [label, format] of [
-      [/download html/i, "html"],
-      [/download plain text/i, "text"],
-      [/download json/i, "json"],
+      [/a web page/i, "html"],
+      [/plain text/i, "text"],
+      [/structured data/i, "json"],
     ] as const) {
       const link = screen.getByRole("link", { name: label });
-      // A real href, so the browser saves it with the server's own
-      // Content-Disposition filename and content type.
-      expect(link).toHaveAttribute("href", `/api/proxy/v1/turns/0/brief/export/${format}`);
+      expect(link).toHaveAttribute("href", `/api/proxy/v1/brief/export/${format}`);
     }
   });
 
@@ -323,7 +377,7 @@ describe("failure", () => {
   it("says so without taking the answer down with it", async () => {
     setViewport(false);
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("{}", { status: 500 }))));
-    render(<BriefPanel turnIndex={0} open onClose={vi.fn()} />);
+    render(<BriefPanel open onClose={vi.fn()} />);
 
     expect(await screen.findByText(/could not be loaded/i)).toBeInTheDocument();
     expect(screen.getByText(/your answer above is unaffected/i)).toBeInTheDocument();
@@ -333,10 +387,9 @@ describe("failure", () => {
 describe("no endpoint accepts a whole brief", () => {
   it("never sends claims, sources or a document id", async () => {
     const { calls, user } = await open(false);
-    await user.type(screen.getByLabelText(/what you want to talk about/i), "x");
-    await user.tab();
     await user.type(screen.getByLabelText(/add a question of your own/i), "y");
     await user.click(screen.getByRole("button", { name: /^add$/i }));
+    await user.click(screen.getByRole("checkbox", { name: /your conversation/i }));
 
     await waitFor(() => expect(calls.filter((call) => call.body).length).toBeGreaterThanOrEqual(2));
     for (const call of calls) {
@@ -352,21 +405,24 @@ describe("no endpoint accepts a whole brief", () => {
   });
 });
 
-describe("the panel is scoped to its own turn", () => {
-  it("addresses the turn it was given", async () => {
+describe("the panel is scoped to the conversation", () => {
+  it("reads the one session-wide brief", async () => {
+    // There is no turn in the path any more. A patient asking four questions
+    // used to end up with four documents, none of which was the sheet of paper
+    // they needed.
     setViewport(false);
     const { fetchMock } = server();
     vi.stubGlobal("fetch", fetchMock);
-    render(<BriefPanel turnIndex={3} open onClose={vi.fn()} />);
+    render(<BriefPanel open onClose={vi.fn()} />);
     await screen.findByRole("heading", { name: /your appointment brief/i });
 
-    expect(String(fetchMock.mock.calls[0]![0])).toBe("/api/proxy/v1/turns/3/brief");
+    expect(String(fetchMock.mock.calls[0]![0])).toBe("/api/proxy/v1/brief");
   });
 
   it("renders nothing at all when closed", () => {
     setViewport(false);
     vi.stubGlobal("fetch", vi.fn());
-    const { container } = render(<BriefPanel turnIndex={0} open={false} onClose={vi.fn()} />);
+    const { container } = render(<BriefPanel open={false} onClose={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -379,9 +435,9 @@ describe("edits are announced without moving focus", () => {
     const status = within(dialog).getByRole("status");
     expect(status).toHaveAttribute("aria-live", "polite");
 
-    await user.type(screen.getByLabelText(/your notes/i), "n");
-    await user.tab();
+    await user.type(screen.getByLabelText(/add a question of your own/i), "n");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
     // Announced rather than focused: moving focus would interrupt typing.
-    await waitFor(() => expect(status).toHaveTextContent(/notes saved/i));
+    await waitFor(() => expect(status).toHaveTextContent(/question added/i));
   });
 });

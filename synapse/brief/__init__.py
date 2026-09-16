@@ -26,7 +26,7 @@ Four properties the package is built around:
 
 from __future__ import annotations  # Postponed annotations
 
-from synapse.brief.build import build_brief
+from synapse.brief.build import build_brief, build_conversation_brief
 from synapse.brief.edit import (
     EditError,
     add_question,
@@ -44,11 +44,14 @@ from synapse.brief.export import (
     EXPORT_WARNING,
     ExportBundle,
     ExportError,
+    PdfExport,
     assert_no_secrets,
     build_export,
+    build_pdf_export,
     load_brief_json,
     temporary_export,
 )
+from synapse.brief.render_pdf import PdfRendererUnavailable, render_brief_pdf
 from synapse.brief.render_print import (
     FitEstimate,
     estimate_fit,
@@ -57,37 +60,53 @@ from synapse.brief.render_print import (
 )
 from synapse.brief.render_text import render_brief_text
 from synapse.brief.schema import (
+    DEFAULT_SECTIONS,
+    MAX_QUESTIONS,
+    RESEARCH_SECTIONS,
+    TRANSCRIPT_SECTIONS,
     AppointmentBrief,
     BriefClaim,
     BriefProvenance,
     BriefQuestion,
     BriefSection,
     BriefSource,
+    BriefTranscriptTurn,
     ContentOrigin,
     SupportLevel,
+    TurnStatus,
     UserContent,
     new_document_id,
 )
 
 __all__ = [
+    "DEFAULT_SECTIONS",
     "EXPORT_WARNING",
+    "MAX_QUESTIONS",
+    "RESEARCH_SECTIONS",
+    "TRANSCRIPT_SECTIONS",
     "AppointmentBrief",
     "BriefClaim",
     "BriefProvenance",
     "BriefQuestion",
     "BriefSection",
     "BriefSource",
+    "BriefTranscriptTurn",
     "ContentOrigin",
     "EditError",
     "ExportBundle",
     "ExportError",
     "FitEstimate",
+    "PdfExport",
+    "PdfRendererUnavailable",
     "SupportLevel",
+    "TurnStatus",
     "UserContent",
     "add_question",
     "assert_no_secrets",
     "build_brief",
+    "build_conversation_brief",
     "build_export",
+    "build_pdf_export",
     "edit_claim_text",
     "estimate_fit",
     "load_brief_json",
@@ -96,6 +115,7 @@ __all__ = [
     "remove_claim",
     "remove_question",
     "render_brief_html",
+    "render_brief_pdf",
     "render_brief_text",
     "reorder_questions",
     "restore_claim",

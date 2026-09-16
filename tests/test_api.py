@@ -81,8 +81,9 @@ class TestServiceToken:
             ("delete", "/v1/session"),
             ("post", "/v1/turns/stream"),
             ("get", "/v1/transparency"),
-            ("get", "/v1/turns/0/brief"),
-            ("get", "/v1/turns/0/brief/export/text"),
+            ("get", "/v1/brief"),
+            ("get", "/v1/brief/export/text"),
+            ("get", "/v1/brief/export/pdf"),
         ],
     )
     def test_every_other_route_requires_it(self, method: str, path: str) -> None:
@@ -284,12 +285,12 @@ class TestSessionIsolation:
         client = api()
         first = authed(client)
         ask(client, first, QUERY)
-        assert client.get("/v1/turns/0/brief", headers=first).status_code == 200
+        assert client.get("/v1/brief", headers=first).status_code == 200
 
         client.cookies.clear()
         second = authed(client)
         # The second session has no turn 0 at all, so there is nothing to read.
-        assert client.get("/v1/turns/0/brief", headers=second).status_code == 404
+        assert client.get("/v1/brief", headers=second).status_code == 404
 
     def test_clearing_discards_the_conversation_but_keeps_the_session(self) -> None:
         """The regression: clearing used to sign the patient out.
@@ -699,7 +700,7 @@ class TestBrief:
 
     def test_a_brief_is_built_on_first_read(self) -> None:
         client, headers = self._client_with_turn()
-        payload = client.get("/v1/turns/0/brief", headers=headers).json()
+        payload = client.get("/v1/brief", headers=headers).json()
         assert payload["document_id"]
         assert payload["claims"]
         assert payload["disclaimer"]
@@ -707,41 +708,39 @@ class TestBrief:
     def test_the_document_id_is_stable_across_reads(self) -> None:
         """Rebuilding would issue a new identifier on every interaction."""
         client, headers = self._client_with_turn()
-        first = client.get("/v1/turns/0/brief", headers=headers).json()["document_id"]
-        second = client.get("/v1/turns/0/brief", headers=headers).json()["document_id"]
+        first = client.get("/v1/brief", headers=headers).json()["document_id"]
+        second = client.get("/v1/brief", headers=headers).json()["document_id"]
         assert first == second
 
     def test_topic_and_notes_are_editable(self) -> None:
         client, headers = self._client_with_turn()
-        client.get("/v1/turns/0/brief", headers=headers)
+        client.get("/v1/brief", headers=headers)
         payload = client.put(
-            "/v1/turns/0/brief/topic", json={"topic": "my blood sugar"}, headers=headers
+            "/v1/brief/topic", json={"topic": "my blood sugar"}, headers=headers
         ).json()
         assert payload["topic"] == "my blood sugar"
         payload = client.put(
-            "/v1/turns/0/brief/notes", json={"notes": "worse in the morning"}, headers=headers
+            "/v1/brief/notes", json={"notes": "worse in the morning"}, headers=headers
         ).json()
         assert payload["notes"] == "worse in the morning"
 
     def test_a_question_can_be_added_and_removed(self) -> None:
         client, headers = self._client_with_turn()
-        client.get("/v1/turns/0/brief", headers=headers)
+        client.get("/v1/brief", headers=headers)
         added = client.post(
-            "/v1/turns/0/brief/questions",
+            "/v1/brief/questions",
             json={"text": "Should I change anything?"},
             headers=headers,
         ).json()
         question_id = added["questions"][-1]["question_id"]
         assert any(q["text"] == "Should I change anything?" for q in added["questions"])
-        removed = client.delete(
-            f"/v1/turns/0/brief/questions/{question_id}", headers=headers
-        ).json()
+        removed = client.delete(f"/v1/brief/questions/{question_id}", headers=headers).json()
         assert all(q["question_id"] != question_id for q in removed["questions"])
 
     def test_no_endpoint_accepts_a_replacement_brief(self) -> None:
         """The forgery guard: claims must come from the answer layer or not exist."""
         client, headers = self._client_with_turn()
-        client.get("/v1/turns/0/brief", headers=headers)
+        client.get("/v1/brief", headers=headers)
         forged = {
             "claims": [
                 {
@@ -752,20 +751,27 @@ class TestBrief:
                 }
             ]
         }
-        for path in ("/v1/turns/0/brief/topic", "/v1/turns/0/brief/notes"):
+        for path in ("/v1/brief/topic", "/v1/brief/notes"):
             assert client.put(path, json=forged, headers=headers).status_code == 422
-        after = client.get("/v1/turns/0/brief", headers=headers).json()
+        after = client.get("/v1/brief", headers=headers).json()
         assert all(claim["claim_id"] != "forged" for claim in after["claims"])
 
     def test_an_emergency_turn_has_no_brief(self) -> None:
         client = api(is_emergency=lambda _q: True)
         headers = authed(client)
         ask(client, headers, "crushing chest pain")
-        assert client.get("/v1/turns/0/brief", headers=headers).status_code == 404
+        assert client.get("/v1/brief", headers=headers).status_code == 404
 
-    def test_a_missing_turn_is_a_typed_404(self) -> None:
-        client, headers = self._client_with_turn()
-        response = client.get("/v1/turns/9/brief", headers=headers)
+    def test_a_conversation_with_nothing_to_recap_is_a_typed_404(self) -> None:
+        """A brief needs an answered turn. An empty session has no document.
+
+        Replaces a test that asked for turn nine of a one-turn conversation.
+        The brief is no longer addressed by turn, so that particular 404 cannot
+        be reached; this is the refusal that took its place.
+        """
+        client = api()
+        headers = authed(client)
+        response = client.get("/v1/brief", headers=headers)
         assert response.status_code == 404
         assert response.json()["code"] == "not_found"
 
@@ -775,7 +781,7 @@ class TestBrief:
     )
     def test_exports_return_safe_attachment_headers(self, fmt: str, content_type: str) -> None:
         client, headers = self._client_with_turn()
-        response = client.get(f"/v1/turns/0/brief/export/{fmt}", headers=headers)
+        response = client.get(f"/v1/brief/export/{fmt}", headers=headers)
         assert response.status_code == 200
         assert response.headers["content-type"].startswith(content_type)
         assert response.headers["x-content-type-options"] == "nosniff"
@@ -787,12 +793,113 @@ class TestBrief:
 
     def test_an_unknown_export_format_is_refused(self) -> None:
         client, headers = self._client_with_turn()
-        assert client.get("/v1/turns/0/brief/export/exe", headers=headers).status_code == 404
+        assert client.get("/v1/brief/export/exe", headers=headers).status_code == 404
 
     def test_the_export_carries_the_permanent_disclaimer(self) -> None:
         client, headers = self._client_with_turn()
-        body = client.get("/v1/turns/0/brief/export/text", headers=headers).text
+        body = client.get("/v1/brief/export/text", headers=headers).text
         assert "not a diagnosis" in body.lower()
+
+    # -- one brief for the whole conversation ------------------------------
+
+    def test_the_brief_spans_every_turn(self) -> None:
+        """One sheet of paper for one appointment, not one per question."""
+        client, headers = self._client_with_turn()
+        first = client.get("/v1/brief", headers=headers).json()
+        assert first["transcript_turn_count"] == 1
+        ask(client, headers, "what about the side effects?")
+        second = client.get("/v1/brief", headers=headers).json()
+        assert second["transcript_turn_count"] == 2
+
+    def test_a_new_turn_keeps_the_document_id(self) -> None:
+        """A printout already in the patient's hand keeps its reference."""
+        client, headers = self._client_with_turn()
+        before = client.get("/v1/brief", headers=headers).json()["document_id"]
+        ask(client, headers, "what about the side effects?")
+        after = client.get("/v1/brief", headers=headers).json()["document_id"]
+        assert after == before
+
+    def test_a_new_turn_does_not_discard_what_the_patient_typed(self) -> None:
+        """The rebuild is a widening, not a reset.
+
+        Losing a patient's notes because they asked another question would be a
+        data-loss bug wearing the clothes of a cache refresh.
+        """
+        client, headers = self._client_with_turn()
+        client.get("/v1/brief", headers=headers)
+        client.put("/v1/brief/topic", json={"topic": "my blood sugar"}, headers=headers)
+        client.put("/v1/brief/notes", json={"notes": "worse in the morning"}, headers=headers)
+        client.post(
+            "/v1/brief/questions", json={"text": "Should I change my diet?"}, headers=headers
+        )
+
+        ask(client, headers, "what about the side effects?")
+        after = client.get("/v1/brief", headers=headers).json()
+        assert after["topic"] == "my blood sugar"
+        assert after["notes"] == "worse in the morning"
+        assert any(
+            question["text"] == "Should I change my diet?" for question in after["questions"]
+        )
+
+    def test_a_new_turn_keeps_the_chosen_sections(self) -> None:
+        client, headers = self._client_with_turn()
+        payload = client.get("/v1/brief", headers=headers).json()
+        chosen = [*payload["default_sections"], "transcript"]
+        client.put("/v1/brief/sections", json={"sections": chosen}, headers=headers)
+        ask(client, headers, "what about the side effects?")
+        after = client.get("/v1/brief", headers=headers).json()
+        assert "transcript" in after["included_sections"]
+
+    # -- the default shape -------------------------------------------------
+
+    def test_the_default_sections_are_the_recap(self) -> None:
+        """Not the nine-section engineering document it used to print."""
+        client, headers = self._client_with_turn()
+        payload = client.get("/v1/brief", headers=headers).json()
+        assert payload["included_sections"] == payload["default_sections"]
+        assert "summary" in payload["default_sections"]
+        assert "questions" in payload["default_sections"]
+        for research in ("claims", "sources", "limitations", "transcript"):
+            assert research not in payload["default_sections"]
+
+    def test_the_transcript_is_an_available_section(self) -> None:
+        client, headers = self._client_with_turn()
+        payload = client.get("/v1/brief", headers=headers).json()
+        assert "transcript" in payload["available_sections"]
+
+    def test_the_conversation_is_not_sent_back_to_render_a_checkbox(self) -> None:
+        """A count is enough; the client already has the turns on screen."""
+        client, headers = self._client_with_turn()
+        payload = client.get("/v1/brief", headers=headers).json()
+        assert payload["transcript_turn_count"] == 1
+        assert "transcript" not in payload
+
+    # -- the PDF -----------------------------------------------------------
+
+    def test_the_pdf_export_is_a_pdf_attachment(self) -> None:
+        client, headers = self._client_with_turn()
+        response = client.get("/v1/brief/export/pdf", headers=headers)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/pdf"
+        assert response.content.startswith(b"%PDF-")
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["cache-control"] == "no-store"
+        disposition = response.headers["content-disposition"]
+        assert disposition.startswith('attachment; filename="appointment-brief-')
+        assert disposition.endswith('.pdf"')
+        assert "\n" not in disposition and disposition.count('"') == 2
+
+    def test_the_pdf_grows_when_the_transcript_is_added(self) -> None:
+        client, headers = self._client_with_turn()
+        payload = client.get("/v1/brief", headers=headers).json()
+        default = client.get("/v1/brief/export/pdf", headers=headers).content
+        client.put(
+            "/v1/brief/sections",
+            json={"sections": [*payload["default_sections"], "transcript"]},
+            headers=headers,
+        )
+        with_transcript = client.get("/v1/brief/export/pdf", headers=headers).content
+        assert len(with_transcript) > len(default)
 
 
 # ---------------------------------------------------------------------------

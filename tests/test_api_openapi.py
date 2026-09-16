@@ -78,14 +78,14 @@ class TestContractShape:
             "/v1/session",
             "/v1/turns/stream",
             "/v1/transparency",
-            "/v1/turns/{turn_index}/brief",
-            "/v1/turns/{turn_index}/brief/topic",
-            "/v1/turns/{turn_index}/brief/notes",
-            "/v1/turns/{turn_index}/brief/questions",
-            "/v1/turns/{turn_index}/brief/questions/order",
-            "/v1/turns/{turn_index}/brief/questions/{question_id}",
-            "/v1/turns/{turn_index}/brief/sections",
-            "/v1/turns/{turn_index}/brief/export/{fmt}",
+            "/v1/brief",
+            "/v1/brief/topic",
+            "/v1/brief/notes",
+            "/v1/brief/questions",
+            "/v1/brief/questions/order",
+            "/v1/brief/questions/{question_id}",
+            "/v1/brief/sections",
+            "/v1/brief/export/{fmt}",
         }
         assert expected <= set(spec["paths"])
 

@@ -139,11 +139,9 @@ describe("the footer", () => {
     );
   });
 
-  it("keeps the attribution away from the disclaimer's claim", () => {
-    // "A Zenith Company" must not sit inside the sentence that describes what
-    // the system is not, where a second name reads as a co-signature.
+  it("keeps the disclaimer focused on product limitations", () => {
     render(<SiteFooter />);
     const disclaimer = screen.getByText(/pre-clinical research prototype/i);
-    expect(disclaimer.textContent).not.toMatch(/Zenith/);
+    expect(disclaimer.textContent).not.toMatch(/Company/);
   });
 });

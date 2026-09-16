@@ -1,4 +1,4 @@
-# Synapse — A Zenith Company
+# Synapse
 # Requirements for the LEGACY Streamlit application (app.py + Data/Retrieval/Generation).
 # Install with: pip install -r requirements.txt
 #

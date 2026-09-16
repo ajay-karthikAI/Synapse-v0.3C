@@ -259,7 +259,6 @@ export function Conversation({ examples }: ConversationProps) {
               briefSlot={
                 offersBrief(turn.envelope) ? (
                   <BriefSection
-                    turnIndex={index}
                     open={openBrief === index}
                     onOpen={() => setOpenBrief(index)}
                     onClose={() => setOpenBrief(null)}
@@ -310,14 +309,17 @@ export function Conversation({ examples }: ConversationProps) {
  * at all, rather than a disabled one. There is nothing to build a brief from on
  * those paths, and offering a control that cannot work is worse than offering
  * none.
+ *
+ * Every one of these buttons opens the SAME document. The brief is one sheet
+ * for the whole conversation, so the turn index only decides which disclosure
+ * is expanded, not which brief is shown — a patient who asks four questions
+ * gets one brief covering all four, not four partial ones.
  */
 function BriefSection({
-  turnIndex,
   open,
   onOpen,
   onClose,
 }: {
-  turnIndex: number;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
@@ -340,7 +342,7 @@ function BriefSection({
         {open ? "Hide the appointment brief" : "Build an appointment brief"}
         <span aria-hidden="true">{open ? "×" : "→"}</span>
       </button>
-      <BriefPanel turnIndex={turnIndex} open={open} onClose={onClose} />
+      <BriefPanel open={open} onClose={onClose} />
     </div>
   );
 }

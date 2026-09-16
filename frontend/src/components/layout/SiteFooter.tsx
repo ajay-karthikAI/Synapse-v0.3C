@@ -31,7 +31,6 @@ export function SiteFooter() {
           >
             How this works, and what it cannot do
           </Link>
-          <span className="attribution">Zenith</span>
         </div>
       </div>
     </footer>

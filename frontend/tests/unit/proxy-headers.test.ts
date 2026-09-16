@@ -122,3 +122,52 @@ describe("responses are filtered on the way back", () => {
     expect(filtered.get("x-internal-trace")).toBeNull();
   });
 });
+
+describe("the allow-list covers the paths this application actually calls", () => {
+  /**
+   * The prefix list and the client's paths are two lists that have to agree,
+   * and nothing made them. When the brief moved from `v1/turns/{i}/brief` to
+   * `v1/brief` it left every permitted prefix behind, and the proxy returned
+   * its own 404 without ever calling the backend — a break that no unit test
+   * on either side would have seen, because each side was correct alone.
+   */
+  async function prefixes() {
+    const route = await import("@/app/api/proxy/[...path]/route");
+    return route.ALLOWED_PREFIXES as readonly string[];
+  }
+
+  function reachable(path: string, allowed: readonly string[]): boolean {
+    return allowed.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  }
+
+  it("permits the session-wide brief", async () => {
+    const { BRIEF_PATH } = await import("@/lib/session-client");
+    expect(reachable(BRIEF_PATH, await prefixes())).toBe(true);
+  });
+
+  it("permits every brief edit and export path", async () => {
+    const { BRIEF_PATH, EXPORT_FORMATS } = await import("@/lib/session-client");
+    const allowed = await prefixes();
+    const paths = [
+      `${BRIEF_PATH}/topic`,
+      `${BRIEF_PATH}/notes`,
+      `${BRIEF_PATH}/questions`,
+      `${BRIEF_PATH}/questions/order`,
+      `${BRIEF_PATH}/questions/q1`,
+      `${BRIEF_PATH}/sections`,
+      ...EXPORT_FORMATS.map((format) => `${BRIEF_PATH}/export/${format}`),
+    ];
+    for (const path of paths) {
+      expect(reachable(path, allowed), path).toBe(true);
+    }
+  });
+
+  it("still refuses a path outside every prefix", async () => {
+    // The allow-list has to stay an allow-list; widening it to fix the brief
+    // must not have turned it into an open relay.
+    const allowed = await prefixes();
+    for (const path of ["v1/admin", "v1", "openapi.json", "docs", ""]) {
+      expect(reachable(path, allowed), path).toBe(false);
+    }
+  });
+});

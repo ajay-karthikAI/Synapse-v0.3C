@@ -87,6 +87,177 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the brief
+         * @description Build the brief on first access, then return the stored one.
+         */
+        get: operations["read_brief_v1_brief_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brief/export/{fmt}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the brief
+         * @description Render the brief and return it as an attachment.
+         *
+         *     Built in memory and streamed out. Nothing touches disk.
+         *
+         *     ``pdf`` is what the download button asks for; the three text formats remain
+         *     for a desktop browser, for pasting into a portal message, and for carrying
+         *     the structured brief somewhere else.
+         */
+        get: operations["export_brief_v1_brief_export__fmt__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brief/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the notes
+         * @description The patient's own notes.
+         */
+        put: operations["put_notes_v1_brief_notes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brief/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a question
+         * @description Add a question the patient wrote. Marked as theirs, never as evidence.
+         */
+        post: operations["post_question_v1_brief_questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brief/questions/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder questions
+         * @description Reorder by identifier. The set must match exactly; nothing is added here.
+         */
+        put: operations["put_question_order_v1_brief_questions_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brief/questions/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a question
+         * @description Remove one question by identifier.
+         */
+        delete: operations["delete_question_v1_brief_questions__question_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brief/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose sections
+         * @description Choose which sections the export includes.
+         *
+         *     This is how the two add-ons are turned on: the patient posts the default
+         *     sections plus ``transcript``, or plus the research sections, or both. The
+         *     disclaimer is always included and cannot be removed -- the section list the
+         *     schema exposes does not contain it.
+         */
+        put: operations["put_sections_v1_brief_sections_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brief/topic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the topic
+         * @description The patient's own 'what I want to talk about' line.
+         */
+        put: operations["put_topic_v1_brief_topic_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/session": {
         parameters: {
             query?: never;
@@ -149,171 +320,6 @@ export interface paths {
          * @description Run one turn and stream its progress, then its single envelope.
          */
         post: operations["stream_v1_turns_stream_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read the brief
-         * @description Build the brief on first access, then return the stored one.
-         */
-        get: operations["read_brief_v1_turns__turn_index__brief_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief/export/{fmt}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Export the brief
-         * @description Render the brief and return it as an attachment.
-         *
-         *     Built in memory and streamed out. Nothing touches disk.
-         */
-        get: operations["export_brief_v1_turns__turn_index__brief_export__fmt__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief/notes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set the notes
-         * @description The patient's own notes.
-         */
-        put: operations["put_notes_v1_turns__turn_index__brief_notes_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief/questions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add a question
-         * @description Add a question the patient wrote. Marked as theirs, never as evidence.
-         */
-        post: operations["post_question_v1_turns__turn_index__brief_questions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief/questions/order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Reorder questions
-         * @description Reorder by identifier. The set must match exactly; nothing is added here.
-         */
-        put: operations["put_question_order_v1_turns__turn_index__brief_questions_order_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief/questions/{question_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove a question
-         * @description Remove one question by identifier.
-         */
-        delete: operations["delete_question_v1_turns__turn_index__brief_questions__question_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief/sections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Choose sections
-         * @description Choose which sections the export includes.
-         *
-         *     The disclaimer is always included and cannot be removed — the section list
-         *     the schema exposes does not contain it.
-         */
-        put: operations["put_sections_v1_turns__turn_index__brief_sections_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/turns/{turn_index}/brief/topic": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set the topic
-         * @description The patient's own 'what I want to talk about' line.
-         */
-        put: operations["put_topic_v1_turns__turn_index__brief_topic_put"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -441,12 +447,21 @@ export interface components {
         /**
          * BriefResponse
          * @description The server-owned brief. A client edits it by named operation only.
+         *
+         *     One brief per conversation, not one per answer, so there is no turn index
+         *     here: a patient leaves an appointment with one sheet of paper, and the
+         *     document is rebuilt to span every turn as the conversation grows.
          */
         BriefResponse: {
             /** Available Sections */
             available_sections: string[];
             /** Claims */
             claims: components["schemas"]["BriefClaimModel"][];
+            /**
+             * Default Sections
+             * @description What the brief prints unless the patient asks for more: the recap.
+             */
+            default_sections: string[];
             /** Disclaimer */
             disclaimer: string;
             /** Document Id */
@@ -469,8 +484,11 @@ export interface components {
             sources: components["schemas"]["SourceModel"][];
             /** Topic */
             topic: string;
-            /** Turn Index */
-            turn_index: number;
+            /**
+             * Transcript Turn Count
+             * @description Exchanges the transcript add-on would print. The turns themselves are not returned: the client already has them on screen, and re-sending the conversation to render a checkbox is a copy of the patient's questions travelling for no reason.
+             */
+            transcript_turn_count: number;
         };
         /**
          * BriefSectionsRequest
@@ -907,6 +925,253 @@ export interface operations {
             };
         };
     };
+    read_brief_v1_brief_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+        };
+    };
+    export_brief_v1_brief_export__fmt__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fmt: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_notes_v1_brief_notes_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefNotesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_question_v1_brief_questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_question_order_v1_brief_questions_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefQuestionOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_question_v1_brief_questions__question_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_sections_v1_brief_sections_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefSectionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_topic_v1_brief_topic_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_session_v1_session_get: {
         parameters: {
             query?: never;
@@ -988,284 +1253,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StreamedTurnEnvelope"];
                     "text/event-stream": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_brief_v1_turns__turn_index__brief_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_brief_v1_turns__turn_index__brief_export__fmt__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                fmt: string;
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    put_notes_v1_turns__turn_index__brief_notes_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BriefNotesRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    post_question_v1_turns__turn_index__brief_questions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BriefQuestionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    put_question_order_v1_turns__turn_index__brief_questions_order_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BriefQuestionOrderRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_question_v1_turns__turn_index__brief_questions__question_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                question_id: string;
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    put_sections_v1_turns__turn_index__brief_sections_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BriefSectionsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    put_topic_v1_turns__turn_index__brief_topic_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Zero-based index of the turn. */
-                turn_index: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BriefTopicRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefResponse"];
                 };
             };
             /** @description Validation Error */

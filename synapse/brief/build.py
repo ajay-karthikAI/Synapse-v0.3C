@@ -26,18 +26,24 @@ from __future__ import annotations  # Postponed annotations
 
 from datetime import UTC, datetime
 
-from synapse.answer.render import PERMANENT_DISCLAIMER, SourceNumbering
-from synapse.answer.schema import GroundedAnswer, SupportStatus
+from synapse.answer.render import PERMANENT_DISCLAIMER, SourceNumbering, SourceRef
+from synapse.answer.schema import AnswerAction, GroundedAnswer, SupportStatus
 from synapse.brief.schema import (
+    DEFAULT_SECTIONS,
     MAX_QUESTIONS,
+    MAX_TRANSCRIPT_ANSWER_CHARS,
+    MAX_TRANSCRIPT_QUESTION_CHARS,
+    MAX_TRANSCRIPT_TURNS,
     AppointmentBrief,
     BriefClaim,
     BriefProvenance,
     BriefQuestion,
     BriefSection,
     BriefSource,
+    BriefTranscriptTurn,
     ContentOrigin,
     SupportLevel,
+    TurnStatus,
     UserContent,
     new_document_id,
 )
@@ -45,6 +51,7 @@ from synapse.evidence.labels import describe_evidence_type, describe_review_stat
 from synapse.evidence.links import canonical_link
 from synapse.evidence.metadata import MetadataResolver, SourceMetadata
 from synapse.logging import get_logger
+from synapse.service.conversation import Conversation, ConversationTurn
 
 logger = get_logger(__name__)
 
@@ -192,4 +199,240 @@ def build_brief(
     )
 
 
-__all__ = ["build_brief"]
+def _status_of(turn: ConversationTurn) -> TurnStatus:
+    """What a transcript should report for this turn."""
+    action = turn.action
+    if action is None:
+        return TurnStatus.UNAVAILABLE
+    return {
+        AnswerAction.ANSWER: TurnStatus.ANSWERED,
+        AnswerAction.ABSTAIN: TurnStatus.NO_EVIDENCE,
+        AnswerAction.MEDICAL_STAFF: TurnStatus.CLINICIAN_REFERRAL,
+        AnswerAction.EMERGENCY: TurnStatus.URGENT_ADVICE,
+    }[action]
+
+
+def _transcript_of(conversation: Conversation) -> list[BriefTranscriptTurn]:
+    """The whole conversation as transcript turns, oldest first.
+
+    Every turn appears, including the ones that produced no answer. An
+    escalation in particular is kept: it is the single exchange a clinician most
+    needs to see, and a transcript that quietly dropped it would be a
+    flattering edit of the visit.
+
+    The answer text is the summary the patient was shown. For a turn that
+    produced no answer it is empty, and the status carries the reason, because
+    writing an explanation here would put words in Synapse's mouth that it never
+    said on screen.
+    """
+    turns: list[BriefTranscriptTurn] = []
+    for index, turn in enumerate(conversation.turns[:MAX_TRANSCRIPT_TURNS]):
+        status = _status_of(turn)
+        presentation = turn.outcome.presentation
+        summary = presentation.answer.summary if presentation is not None else ""
+        if status is not TurnStatus.ANSWERED:
+            # Only an answered turn has a summary that describes research. The
+            # abstain boilerplate, the escalation copy and the failure notice
+            # are all interface text, not something the patient was told about
+            # their question.
+            summary = ""
+        turns.append(
+            BriefTranscriptTurn(
+                index=index,
+                question=turn.query[:MAX_TRANSCRIPT_QUESTION_CHARS],
+                answer=summary[:MAX_TRANSCRIPT_ANSWER_CHARS],
+                status=status,
+            )
+        )
+    return turns
+
+
+def _recap_of(conversation: Conversation) -> str:
+    """The conversation summary: the verified per-turn summaries, in order.
+
+    **No model call.** A synthesised "summary of the summaries" would be text
+    that no verifier ever checked against a retrieved passage, printed on a
+    sheet a patient hands to a clinician — precisely the fabrication that claim
+    verification exists to prevent. So the recap is assembled, not written: each
+    paragraph is a summary the answer layer already produced and the display
+    policy already cleared.
+
+    Paragraphs are separated by a blank line, and the renderers split on that.
+    Duplicates are collapsed: a follow-up on the same topic often returns the
+    same summary, and printing it twice reads as a stutter.
+    """
+    paragraphs: list[str] = []
+    for turn in conversation.turns:
+        presentation = turn.outcome.presentation
+        if presentation is None:
+            continue
+        answer = presentation.answer
+        if answer.action is not AnswerAction.ANSWER:
+            continue
+        summary = answer.summary.strip()
+        if summary and summary not in paragraphs:
+            paragraphs.append(summary)
+    return "\n\n".join(paragraphs)
+
+
+def build_conversation_brief(
+    conversation: Conversation,
+    *,
+    resolver: MetadataResolver | None = None,
+    user: UserContent | None = None,
+    generated_at: datetime | None = None,
+    document_id: str | None = None,
+    app_version: str = "",
+    corpus_version: str = "",
+    index_version: str = "",
+) -> AppointmentBrief:
+    """One brief for a whole conversation, rather than one per answer.
+
+    A patient leaves with one sheet of paper for one appointment, not a printout
+    per question, so this merges every answered turn into a single document.
+
+    Two things have to be reconciled to do that, and both are why this is not a
+    loop over :func:`build_brief`:
+
+    **Source numbers are global here.** Each turn carried its own
+    :class:`~synapse.answer.render.SourceNumbering`, so ``[1]`` meant a
+    different study on turn one than on turn three. Numbers are reassigned in
+    order of first appearance across the conversation and every marker is
+    remapped through the same table, because two different studies printed as
+    ``[1]`` on one page is a citation error, not a display quirk.
+
+    **Identifiers are namespaced by turn.** ``claim_id`` is unique within an
+    answer, not across a conversation, and the schema requires uniqueness within
+    a brief. Each is prefixed with its turn index.
+
+    Emergency turns contribute nothing but a transcript line: no claim, no
+    source, no question. They were escalated ahead of retrieval, so they have no
+    research to contribute, and their copy belongs on the screen that showed it.
+
+    Args:
+        conversation: the session's conversation, in order.
+        resolver: governed source metadata, as for :func:`build_brief`.
+        user: the patient's topic and notes.
+        generated_at: the timestamp to stamp. Defaults to now.
+        document_id: pass the existing one so the identifier survives a rebuild
+            when a new turn is added.
+
+    Returns:
+        A validated brief whose default sections are the recap and the
+        questions. The transcript and the research sections are present in the
+        model and omitted from the print until the patient asks for them.
+    """
+    resolver = resolver or MetadataResolver.empty()
+    stamped_at = generated_at or datetime.now(UTC)
+
+    # Pass one: assign global numbers in order of first appearance, counting
+    # only sources a surviving claim actually cites.
+    global_number: dict[str, int] = {}
+    ordered_refs: list[tuple[int, SourceRef]] = []
+    for turn in conversation.turns:
+        presentation = turn.outcome.presentation
+        if presentation is None or presentation.answer.action is not AnswerAction.ANSWER:
+            continue
+        answer = presentation.answer
+        numbering = presentation.numbering
+        cited = {
+            source_id
+            for claim in answer.claims
+            if claim.support_status in _SUPPORT_MAP
+            for source_id in claim.source_ids
+            if source_id in numbering.refs
+        }
+        for ref in numbering.ordered():
+            if ref.source_id in cited and ref.source_id not in global_number:
+                global_number[ref.source_id] = len(global_number) + 1
+                ordered_refs.append((global_number[ref.source_id], ref))
+
+    sources = [
+        _source_from_metadata(number, resolver.resolve(ref.source_id, title=ref.title, url=ref.url))
+        for number, ref in ordered_refs
+    ]
+
+    # Pass two: claims, questions and limitations, remapped onto those numbers.
+    claims: list[BriefClaim] = []
+    questions: list[BriefQuestion] = []
+    limitations: list[str] = []
+    seen_questions: set[str] = set()
+    dropped = 0
+
+    for index, turn in enumerate(conversation.turns):
+        presentation = turn.outcome.presentation
+        if presentation is None or presentation.answer.action is not AnswerAction.ANSWER:
+            continue
+        answer = presentation.answer
+
+        for claim in answer.claims:
+            support = _SUPPORT_MAP.get(claim.support_status)
+            if support is None:
+                dropped += 1
+                continue
+            markers = sorted(
+                global_number[source_id]
+                for source_id in claim.source_ids
+                if source_id in global_number
+            )
+            if not markers:
+                dropped += 1
+                continue
+            claims.append(
+                BriefClaim(
+                    claim_id=f"t{index}-{claim.claim_id}",
+                    text=claim.text,
+                    source_numbers=markers,
+                    support=support,
+                    origin=ContentOrigin.VERIFIED_EVIDENCE,
+                )
+            )
+
+        for text in answer.questions_for_doctor:
+            # Deduplicated on the normalised text. Follow-ups on one topic tend
+            # to suggest the same question again, and a list that repeats it is
+            # a list a patient stops reading.
+            key = " ".join(text.split()).casefold()
+            if not key or key in seen_questions:
+                continue
+            seen_questions.add(key)
+            questions.append(
+                BriefQuestion(
+                    question_id=f"t{index}q{len(questions) + 1}",
+                    text=text,
+                    origin=ContentOrigin.VERIFIED_EVIDENCE,
+                )
+            )
+
+        for limitation in answer.limitations:
+            if limitation not in limitations:
+                limitations.append(limitation)
+
+    if dropped:
+        logger.info("claims omitted from brief", extra={"dropped": dropped})
+
+    return AppointmentBrief(
+        document_id=document_id or new_document_id(),
+        user=user or UserContent(),
+        summary=_recap_of(conversation),
+        claims=claims,
+        # The ceiling applies to the whole conversation, so a long session is
+        # truncated rather than allowed to print a fourth page of questions.
+        questions=questions[:MAX_QUESTIONS],
+        sources=sources,
+        limitations=limitations,
+        transcript=_transcript_of(conversation),
+        disclaimer=PERMANENT_DISCLAIMER,
+        provenance=BriefProvenance(
+            generated_at=stamped_at,
+            app_version=app_version,
+            source_pack_id=resolver.pack_id,
+            source_pack_version=resolver.pack_version,
+            corpus_version=corpus_version,
+            index_version=index_version,
+        ),
+        included_sections=list(DEFAULT_SECTIONS),
+    )
+
+
+__all__ = ["build_brief", "build_conversation_brief"]

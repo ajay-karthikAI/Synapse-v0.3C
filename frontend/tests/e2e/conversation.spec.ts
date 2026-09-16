@@ -562,19 +562,34 @@ test.describe("the appointment brief", () => {
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("edits the topic through one named operation", async ({ page }) => {
+  test("turns an add-on on through one named operation", async ({ page }) => {
+    // Replaces a test that filled the topic field and blurred into the notes
+    // box. Neither field is on this panel any more: a patient whose question
+    // has just been answered was being asked to type it in again.
     await stubBackend(page);
     await page.goto("/");
     await ask(page);
     await page.getByRole("button", { name: /Build an appointment brief/ }).click();
 
     const request = page.waitForRequest(
-      (candidate) => candidate.url().includes("/brief/topic") && candidate.method() === "PUT",
+      (candidate) => candidate.url().includes("/brief/sections") && candidate.method() === "PUT",
     );
-    await page.getByLabel("What you want to talk about").fill("my blood sugar");
-    await page.getByLabel("Your notes").click();
+    await page.getByRole("checkbox", { name: /Your conversation/ }).check();
     const sent = await request;
-    expect(sent.postDataJSON()).toEqual({ topic: "my blood sugar" });
+    expect(sent.postDataJSON().sections).toContain("transcript");
+  });
+
+  test("offers no topic or notes field", async ({ page }) => {
+    await stubBackend(page);
+    await page.goto("/");
+    await ask(page);
+    await page.getByRole("button", { name: /Build an appointment brief/ }).click();
+
+    await expect(page.getByLabel("What you want to talk about")).toHaveCount(0);
+    await expect(page.getByLabel("Your notes")).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: /Would you like to add more questions/ }),
+    ).toBeVisible();
   });
 
   test("adds and reorders questions from the keyboard", async ({ page }) => {

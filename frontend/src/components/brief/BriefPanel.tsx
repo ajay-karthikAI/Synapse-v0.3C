@@ -10,9 +10,7 @@ import {
   readBrief,
   removeBriefQuestion,
   reorderBriefQuestions,
-  setBriefNotes,
   setBriefSections,
-  setBriefTopic,
 } from "@/lib/session-client";
 import { DESKTOP_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
 
@@ -24,8 +22,9 @@ import { DESKTOP_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
  * sends a brief — see `synapse/api/routes/brief.py` for why: a brief carries
  * verified claims with their support levels, and an endpoint that accepted a
  * whole one would let a caller print unverified claims on a document a patient
- * hands to a doctor. So the client can change the topic, the notes, its own
- * questions and which sections to include, and nothing else.
+ * hands to a doctor. So the client can change its own questions and which
+ * sections to include, and nothing else. (The contract still accepts a topic
+ * and notes; this panel no longer offers either -- see `BriefBody`.)
  *
  * **Two different components, one file.** On a wide screen this is a side panel
  * next to the answer: it does not cover the page, so it is a `complementary`
@@ -41,12 +40,11 @@ import { DESKTOP_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
  */
 
 interface BriefPanelProps {
-  turnIndex: number;
   open: boolean;
   onClose: () => void;
 }
 
-export function BriefPanel({ turnIndex, open, onClose }: BriefPanelProps) {
+export function BriefPanel({ open, onClose }: BriefPanelProps) {
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const [brief, setBrief] = useState<Brief | null>(null);
   const [error, setError] = useState(false);
@@ -54,12 +52,13 @@ export function BriefPanel({ turnIndex, open, onClose }: BriefPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // Loaded on open. The server builds it once per turn and caches it, so
-  // reopening does not issue a new document identifier.
+  // Loaded on open. The server holds one brief for the conversation and widens
+  // it as turns are added, so reopening after another question shows the fuller
+  // document under the same document identifier rather than issuing a new one.
   useEffect(() => {
     if (!open) return;
     let live = true;
-    void readBrief(turnIndex).then((loaded) => {
+    void readBrief().then((loaded) => {
       if (!live) return;
       if (loaded) setBrief(loaded);
       else setError(true);
@@ -67,7 +66,7 @@ export function BriefPanel({ turnIndex, open, onClose }: BriefPanelProps) {
     return () => {
       live = false;
     };
-  }, [open, turnIndex]);
+  }, [open]);
 
   // Focus moves into the panel when it opens, and back to whatever opened it
   // when it closes — otherwise focus is left on a button that is now gone and
@@ -185,7 +184,7 @@ export function BriefPanel({ turnIndex, open, onClose }: BriefPanelProps) {
         ) : null}
 
         {brief ? (
-          <BriefBody brief={brief} turnIndex={turnIndex} apply={apply} />
+          <BriefBody brief={brief} apply={apply} />
         ) : (
           !error && (
             <p role="status" className="mt-6 text-[14px] text-ink-secondary">
@@ -200,62 +199,24 @@ export function BriefPanel({ turnIndex, open, onClose }: BriefPanelProps) {
 
 interface BriefBodyProps {
   brief: Brief;
-  turnIndex: number;
   apply: (operation: Promise<Brief | null>, message: string) => Promise<void>;
 }
 
-function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
-  const [topic, setTopic] = useState(brief.topic);
-  const [notes, setNotes] = useState(brief.notes);
+function BriefBody({ brief, apply }: BriefBodyProps) {
   const [question, setQuestion] = useState("");
 
+  // The "what you want to talk about" line and the free-text notes box used to
+  // open this panel. Both are gone: a patient who has just had their question
+  // answered is being asked to write the question down again, and the notes box
+  // was a blank page with no prompt. The panel now does one thing -- the
+  // questions to take in -- and the summary comes from the conversation.
+  //
+  // The server still holds `topic` and `notes`, and `setBriefTopic`/
+  // `setBriefNotes` still exist: the PDF renders each as nothing when empty, so
+  // there is no dead section, and nothing had to change behind the contract to
+  // take two inputs off the screen.
   return (
     <div className="mt-6 space-y-8">
-      {/* --- What the patient wrote themselves --- */}
-      <div>
-        <label
-          htmlFor="brief-topic"
-          className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-secondary"
-        >
-          What you want to talk about
-        </label>
-        <input
-          id="brief-topic"
-          type="text"
-          value={topic}
-          maxLength={2000}
-          onChange={(event) => setTopic(event.target.value)}
-          // Committed on blur, not per keystroke: one request per character
-          // would be a request per character containing the patient's own words.
-          onBlur={() => {
-            if (topic !== brief.topic) void apply(setBriefTopic(turnIndex, topic), "Topic saved");
-          }}
-          placeholder="In one line"
-          className="mt-2.5 block min-h-[44px] w-full rounded-[12px] border border-border bg-surface px-3.5 text-[15px] text-ink outline-none focus:border-accent"
-        />
-      </div>
-
-      <div>
-        <label
-          htmlFor="brief-notes"
-          className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-secondary"
-        >
-          Your notes
-        </label>
-        <textarea
-          id="brief-notes"
-          rows={3}
-          value={notes}
-          maxLength={4000}
-          onChange={(event) => setNotes(event.target.value)}
-          onBlur={() => {
-            if (notes !== brief.notes) void apply(setBriefNotes(turnIndex, notes), "Notes saved");
-          }}
-          placeholder="What you have noticed, and when it started"
-          className="mt-2.5 block w-full resize-y rounded-[12px] border border-border bg-surface px-3.5 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-accent"
-        />
-      </div>
-
       {/* --- Questions: add, remove, reorder --- */}
       <div>
         <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-secondary">
@@ -269,7 +230,10 @@ function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
             >
               <span className="min-w-0 flex-1 text-[14px] leading-relaxed text-ink">
                 {item.text}
-                {item.origin === "user" ? (
+                {/* The server sends the ContentOrigin value verbatim, and it
+                    is "user_authored" -- this compared against "user" and so
+                    never marked a single question as the patient's own. */}
+                {item.origin === "user_authored" ? (
                   <span className="ml-2 text-[11px] text-ink-secondary">(yours)</span>
                 ) : null}
               </span>
@@ -280,7 +244,7 @@ function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
                   glyph="↑"
                   onClick={() =>
                     apply(
-                      reorderBriefQuestions(turnIndex, swap(idsOf(brief), index, index - 1)),
+                      reorderBriefQuestions(swap(idsOf(brief), index, index - 1)),
                       `Moved to position ${index}`,
                     )
                   }
@@ -291,7 +255,7 @@ function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
                   glyph="↓"
                   onClick={() =>
                     apply(
-                      reorderBriefQuestions(turnIndex, swap(idsOf(brief), index, index + 1)),
+                      reorderBriefQuestions(swap(idsOf(brief), index, index + 1)),
                       `Moved to position ${index + 2}`,
                     )
                   }
@@ -300,7 +264,7 @@ function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
                   label={`Remove "${item.text}"`}
                   glyph="×"
                   onClick={() =>
-                    apply(removeBriefQuestion(turnIndex, item.question_id), "Question removed")
+                    apply(removeBriefQuestion(item.question_id), "Question removed")
                   }
                 />
               </span>
@@ -308,16 +272,23 @@ function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
           ))}
         </ol>
 
+        <h5 className="mt-6 text-[14px] leading-relaxed text-ink">
+          Would you like to add more questions for your physician?
+        </h5>
+
         <form
-          className="mt-3 flex gap-2"
+          className="mt-2.5 flex gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             const text = question.trim();
             if (!text) return;
             setQuestion("");
-            void apply(addBriefQuestion(turnIndex, text), "Question added");
+            void apply(addBriefQuestion(text), "Question added");
           }}
         >
+          {/* The visible heading above is not the input's label: a heading is
+              not associated with a field, so a screen reader reaching the box
+              by Tab would hear nothing. The accessible name stays here. */}
           <label htmlFor="brief-new-question" className="visually-hidden">
             Add a question of your own
           </label>
@@ -340,42 +311,39 @@ function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
         </form>
       </div>
 
-      {/* --- Which sections the export carries --- */}
+      {/* --- The add-ons ---
+          Two toggles, not one checkbox per section. The panel used to list all
+          eight and tick every one of them, which is how the brief became a
+          nine-section engineering document: a patient was offered "claims",
+          "sources" and "limitations" as separate decisions and had no reason to
+          make any of them. The default is the recap; these two are what a
+          patient might genuinely want added. */}
       <fieldset>
         <legend className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-secondary">
-          Include on the page
+          Add to the PDF
         </legend>
-        <div className="mt-3 space-y-2">
-          {brief.available_sections.map((section) => {
-            const checked = brief.included_sections.includes(section);
-            return (
-              <label
-                key={section}
-                className="flex min-h-[44px] items-center gap-2.5 text-[14px] text-ink"
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() =>
-                    apply(
-                      setBriefSections(
-                        turnIndex,
-                        checked
-                          ? brief.included_sections.filter((value) => value !== section)
-                          : [...brief.included_sections, section],
-                      ),
-                      `${sectionLabel(section)} ${checked ? "removed" : "added"}`,
-                    )
-                  }
-                  className="h-4 w-4 accent-[#7E3FF2]"
-                />
-                {sectionLabel(section)}
-              </label>
-            );
-          })}
+        <div className="mt-3 space-y-1">
+          <AddOn
+            label="Your conversation"
+            description={
+              brief.transcript_turn_count === 1
+                ? "The question you asked and the answer you were given."
+                : `All ${brief.transcript_turn_count} questions you asked, and the answers.`
+            }
+            sections={transcriptSections(brief)}
+            brief={brief}
+            apply={apply}
+          />
+          <AddOn
+            label="The research behind it"
+            description="The findings, their citation numbers, and the studies they came from."
+            sections={researchSections(brief)}
+            brief={brief}
+            apply={apply}
+          />
         </div>
         <p className="mt-2 text-[12px] leading-relaxed text-ink-secondary">
-          The disclaimer is always printed and cannot be removed.
+          The summary, your questions and the disclaimer are always included.
         </p>
       </fieldset>
 
@@ -396,27 +364,34 @@ function BriefBody({ brief, turnIndex, apply }: BriefBodyProps) {
         </div>
       ) : null}
 
-      {/* --- Export --- */}
+      {/* --- Export ---
+          The PDF is the button; the other three are a footnote. All four are
+          real links rather than scripted fetch-and-blob, so the browser saves
+          each using the server's Content-Disposition. `download` is not set:
+          the filename is the server's to choose, and it builds one from the
+          brief's own document id. */}
       <div className="border-t border-rule pt-5">
         <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-secondary">
           Take it with you
         </h4>
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {EXPORT_FORMATS.map((format) => (
-            <li key={format}>
-              <a
-                href={exportUrl(turnIndex, format)}
-                // A real link, so the browser saves it using the server's
-                // Content-Disposition. `download` is not set: the filename is
-                // the server's to choose, and it builds one from the brief's
-                // own document id.
-                className="inline-flex min-h-[44px] items-center rounded-[12px] border border-rule bg-surface px-4 text-[14px] text-accent no-underline transition-colors hover:border-accent-soft hover:bg-accent-wash"
-              >
-                Download {format === "text" ? "plain text" : format.toUpperCase()}
+        <a
+          href={exportUrl("pdf")}
+          className="mt-3 inline-flex min-h-[48px] items-center rounded-[12px] bg-accent-royal px-5 text-[15px] font-medium text-white no-underline transition-opacity hover:opacity-90"
+        >
+          Download the PDF
+        </a>
+        <p className="mt-3 text-[12px] leading-relaxed text-ink-secondary">
+          Also available as{" "}
+          {OTHER_FORMATS.map((format, index) => (
+            <span key={format}>
+              {index > 0 ? ", " : ""}
+              <a href={exportUrl(format)} className="text-accent underline-offset-4 hover:underline">
+                {formatLabel(format)}
               </a>
-            </li>
+            </span>
           ))}
-        </ul>
+          .
+        </p>
         <p className="mt-3 text-[12px] leading-relaxed text-ink-secondary">
           {brief.export_warning}
         </p>
@@ -466,23 +441,86 @@ function swap(ids: readonly string[], from: number, to: number): string[] {
   return next;
 }
 
+/** The section the transcript add-on switches on. */
+const TRANSCRIPT = "transcript";
+
 /**
- * Section identifiers are server enum values; these are the patient's words.
+ * Which sections each add-on covers, DERIVED from the contract rather than
+ * restated here.
  *
- * Deliberately NOT the same wording as the editing fields above. "What you want
- * to talk about" names both a textbox and its include-checkbox otherwise, and
- * two controls with one accessible name inside a single panel is ambiguous to
- * anyone navigating by name — "topic, checkbox" and "topic, edit" is the
- * distinction that has to survive. The fieldset's legend supplies the "include
- * on the page" half of the meaning.
+ * `available_sections` minus `default_sections` is exactly the set that is off
+ * by default, so the two groups are a partition of it. Hard-coding the research
+ * sections would mean this file and `synapse/brief/schema.py` could disagree
+ * about what "the research" is, and the failure would be silent: a section the
+ * server added would simply never be offered.
  */
-function sectionLabel(section: string): string {
+function addOnSections(brief: Brief): string[] {
+  return brief.available_sections.filter(
+    (section) => !brief.default_sections.includes(section),
+  );
+}
+
+function transcriptSections(brief: Brief): string[] {
+  return addOnSections(brief).filter((section) => section === TRANSCRIPT);
+}
+
+function researchSections(brief: Brief): string[] {
+  return addOnSections(brief).filter((section) => section !== TRANSCRIPT);
+}
+
+/** The formats offered below the PDF button. */
+const OTHER_FORMATS = EXPORT_FORMATS.filter((format) => format !== "pdf");
+
+function formatLabel(format: string): string {
   const labels: Record<string, string> = {
-    topic: "Topic",
-    notes: "Notes",
-    questions: "Questions",
-    claims: "Research findings",
-    sources: "Sources",
+    html: "a web page",
+    text: "plain text",
+    json: "structured data",
   };
-  return labels[section] ?? section;
+  return labels[format] ?? format;
+}
+
+/**
+ * One add-on: a group of sections the patient turns on together.
+ *
+ * Checked only when every section in the group is included, so a partial state
+ * arriving from the server reads as off rather than as on-and-broken.
+ */
+function AddOn({
+  label,
+  description,
+  sections,
+  brief,
+  apply,
+}: {
+  label: string;
+  description: string;
+  sections: readonly string[];
+  brief: Brief;
+  apply: (operation: Promise<Brief | null>, message: string) => Promise<void>;
+}) {
+  if (sections.length === 0) return null;
+  const checked = sections.every((section) => brief.included_sections.includes(section));
+  const next = checked
+    ? brief.included_sections.filter((section) => !sections.includes(section))
+    : [...brief.included_sections, ...sections];
+
+  return (
+    <label className="flex min-h-[44px] cursor-pointer items-start gap-2.5 py-1.5 text-[14px] text-ink">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() =>
+          apply(setBriefSections(next), `${label} ${checked ? "removed" : "added"}`)
+        }
+        className="mt-1 h-4 w-4 shrink-0 accent-[#7E3FF2]"
+      />
+      <span>
+        {label}
+        <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-secondary">
+          {description}
+        </span>
+      </span>
+    </label>
+  );
 }

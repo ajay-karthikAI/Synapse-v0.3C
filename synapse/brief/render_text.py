@@ -17,7 +17,7 @@ background colour.
 
 from __future__ import annotations  # Postponed annotations
 
-from synapse.brief.schema import AppointmentBrief, BriefSection, ContentOrigin
+from synapse.brief.schema import STATUS_NOTES, AppointmentBrief, BriefSection, ContentOrigin
 
 TITLE = "APPOINTMENT BRIEF"
 USER_TAG = "[written by you]"
@@ -55,12 +55,36 @@ def render_brief_text(brief: AppointmentBrief) -> str:
         lines.extend([f"{USER_TAG} {brief.user.topic}", ""])
 
     if brief.includes(BriefSection.SUMMARY) and brief.summary:
-        lines.extend(_rule("What the research says"))
+        lines.extend(_rule("Summary of your conversation"))
         lines.extend([brief.summary, ""])
+
+    questions = brief.visible_questions()
+    if questions:
+        lines.extend(_rule("Questions to ask your doctor"))
+        for index, question in enumerate(questions, start=1):
+            own = f" {USER_TAG}" if question.origin is ContentOrigin.USER_AUTHORED else ""
+            lines.append(f"{index}. {question.text}{own}")
+        lines.append("")
+
+    if brief.includes(BriefSection.NOTES) and brief.user.notes:
+        lines.extend(_rule("My notes"))
+        lines.extend([f"{USER_TAG} {brief.user.notes}", ""])
+
+    transcript = brief.visible_transcript()
+    if transcript:
+        lines.extend(_rule("Your conversation"))
+        for turn in transcript:
+            lines.append(f"You asked: {turn.question}")
+            if turn.answer:
+                lines.append(f"Synapse said: {turn.answer}")
+            note = STATUS_NOTES.get(turn.status)
+            if note is not None:
+                lines.append(f"  {note}")
+            lines.append("")
 
     claims = brief.visible_claims()
     if claims:
-        lines.extend(_rule("Details from published research"))
+        lines.extend(_rule("The research behind this"))
         for claim in claims:
             if claim.origin is ContentOrigin.USER_EDITED:
                 lines.append(f"- {EDITED_TAG} {claim.text}")
@@ -71,18 +95,6 @@ def render_brief_text(brief: AppointmentBrief) -> str:
             partial = " (partly verified)" if claim.support.value == "partially_supported" else ""
             lines.append(f"- {claim.text} {claim.markers()}{partial}".rstrip())
         lines.append("")
-
-    questions = brief.visible_questions()
-    if questions:
-        lines.extend(_rule("Questions to ask"))
-        for index, question in enumerate(questions, start=1):
-            own = f" {USER_TAG}" if question.origin is ContentOrigin.USER_AUTHORED else ""
-            lines.append(f"{index}. {question.text}{own}")
-        lines.append("")
-
-    if brief.includes(BriefSection.NOTES) and brief.user.notes:
-        lines.extend(_rule("My notes"))
-        lines.extend([f"{USER_TAG} {brief.user.notes}", ""])
 
     if brief.includes(BriefSection.LIMITATIONS) and brief.limitations:
         lines.extend(_rule("What this does not cover"))

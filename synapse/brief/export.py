@@ -3,13 +3,14 @@ synapse.brief.export
 ====================
 Turning a brief into files the user keeps, and keeping nothing ourselves.
 
-Three formats, one rule each:
+Four formats, one rule each:
 
-* **HTML** — the printable document. Self-contained, so it opens offline and
-  reaches no network. This is what "print to PDF" acts on, which is why there is
-  no PDF library here: every browser and every phone already has a competent PDF
-  writer, and adding one would mean shipping a rendering engine to reproduce
-  what the print stylesheet already specifies.
+* **PDF** — what the download button serves, and the format a patient actually
+  keeps. See :mod:`synapse.brief.render_pdf` for why the server produces this
+  rather than asking the browser to: on a phone, "print to PDF" is a gesture
+  most people never find, and a phone is where this gets used.
+* **HTML** — the printable document, kept for a desktop browser and for the
+  print stylesheet. Self-contained, so it opens offline and reaches no network.
 * **JSON** — the structured brief, for portability. The schema's own
   serialisation, so it round-trips exactly.
 * **Text** — a plain fallback that pastes into a portal message or an SMS.
@@ -49,6 +50,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from synapse.brief.render_pdf import PdfRendererUnavailable, render_brief_pdf
 from synapse.brief.render_print import render_brief_html
 from synapse.brief.render_text import render_brief_text
 from synapse.brief.schema import AppointmentBrief
@@ -159,6 +161,60 @@ def build_export(brief: AppointmentBrief, *, page_size: str = "a4") -> ExportBun
     return ExportBundle(document_id=brief.document_id, html=html, json_text=json_text, text=text)
 
 
+@dataclass(frozen=True)
+class PdfExport:
+    """The rendered PDF, with the filename a user will see."""
+
+    document_id: str
+    pdf: bytes
+
+    @property
+    def filename(self) -> str:
+        """Filename for the PDF."""
+        return f"appointment-brief-{self.document_id}.pdf"
+
+    @property
+    def size(self) -> int:
+        """Byte size, for display beside a download button."""
+        return len(self.pdf)
+
+
+def build_pdf_export(brief: AppointmentBrief, *, page_size: str = "a4") -> PdfExport:
+    """Render the brief to PDF, checked before it is returned.
+
+    **The scan runs on the structured brief, not on the PDF bytes**, and that is
+    a correctness point rather than a shortcut. A PDF's text lives in compressed
+    content streams, so ``assert_no_secrets`` over the bytes would match nothing
+    whatever the document said — a check that always passes is worse than no
+    check, because it reads like one that works. ``model_dump`` reaches every
+    string the renderer is able to draw, since the renderer draws nothing it did
+    not take from the model.
+
+    Raises:
+        ExportError: the brief failed its pre-export checks, or no PDF engine is
+            installed. Both are reported the same way to the caller: there is no
+            PDF, and the reason is not something a patient can act on.
+    """
+    projection = json.dumps(brief.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
+    assert_no_secrets(projection, artefact="pdf")
+
+    try:
+        payload = render_brief_pdf(brief, page_size=page_size)
+    except PdfRendererUnavailable as exc:
+        logger.error("pdf export unavailable", extra={"document_id": brief.document_id})
+        raise ExportError("no PDF renderer is installed, so the brief was not exported") from exc
+
+    logger.info(
+        "brief exported as pdf",
+        extra={
+            "document_id": brief.document_id,
+            "bytes": len(payload),
+            "sections": len(brief.included_sections),
+        },
+    )
+    return PdfExport(document_id=brief.document_id, pdf=payload)
+
+
 @contextmanager
 def temporary_export(brief: AppointmentBrief, *, page_size: str = "a4") -> Iterator[Path]:
     """Write the bundle to a private temporary directory, and delete it on exit.
@@ -195,8 +251,10 @@ __all__ = [
     "EXPORT_WARNING",
     "ExportBundle",
     "ExportError",
+    "PdfExport",
     "assert_no_secrets",
     "build_export",
+    "build_pdf_export",
     "load_brief_json",
     "temporary_export",
 ]

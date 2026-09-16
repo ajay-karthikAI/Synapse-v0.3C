@@ -16,8 +16,18 @@ come from the answer layer or they must not exist, so the only writable fields
 are the ones the patient genuinely authored: their topic, their notes, their own
 questions, and which sections to include.
 
-The brief is built lazily on first read, once per turn, and cached in the
-session. Rebuilding would issue a new document identifier on every interaction.
+One brief per conversation
+--------------------------
+There used to be one per turn, at ``/v1/turns/{turn_index}/brief``. A patient
+asking four questions ended up with four documents, each a partial account of
+the visit, and none of them the sheet of paper they actually needed. So the
+brief is session-scoped: built lazily on first read, spanning every turn, and
+rebuilt when a new turn arrives.
+
+A rebuild is not a reset. It keeps the document identifier, the patient's topic
+and notes, the questions they added themselves, and the sections they chose —
+losing a patient's typed notes because they asked a fifth question would be a
+data-loss bug wearing the clothes of a cache refresh.
 
 Exports are produced in memory and streamed straight out. Nothing is written to
 disk: an export contains the patient's own notes, and a temporary file is a
@@ -30,10 +40,8 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, Response
-from fastapi import Path as PathParam
 
 from synapse.answer.render import PERMANENT_DISCLAIMER
-from synapse.answer.schema import AnswerAction
 from synapse.api.deps import CODE_INVALID_REQUEST, CODE_NOT_FOUND, ApiError, SessionDep
 from synapse.api.models import (
     BriefClaimModel,
@@ -48,13 +56,17 @@ from synapse.api.models import (
 )
 from synapse.api.sessions import Session
 from synapse.brief import (
+    DEFAULT_SECTIONS,
     EXPORT_WARNING,
+    MAX_QUESTIONS,
     AppointmentBrief,
     BriefSection,
+    ContentOrigin,
     EditError,
     add_question,
-    build_brief,
+    build_conversation_brief,
     build_export,
+    build_pdf_export,
     estimate_fit,
     overflow_advice,
     remove_question,
@@ -64,63 +76,88 @@ from synapse.brief import (
     set_topic,
 )
 from synapse.logging import get_logger
-from synapse.service.conversation import ConversationTurn
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/turns/{turn_index}/brief", tags=["brief"])
+router = APIRouter(prefix="/v1/brief", tags=["brief"])
 
-TurnIndex = PathParam(ge=0, le=1000, description="Zero-based index of the turn.")
-
-# Exports are text. Declared explicitly with nosniff so a browser cannot be
-# talked into rendering an export as something executable.
+# Text exports, declared explicitly with nosniff so a browser cannot be talked
+# into rendering an export as something executable. The PDF is served by the
+# same route but built separately: it is bytes, not text, and it is checked
+# against the structured brief rather than against its own compressed output.
 EXPORT_TYPES: dict[str, tuple[str, str]] = {
     "html": ("text/html; charset=utf-8", "html"),
     "text": ("text/plain; charset=utf-8", "txt"),
     "json": ("application/json; charset=utf-8", "json"),
 }
+PDF_FORMAT = "pdf"
+PDF_MEDIA_TYPE = "application/pdf"
 
 
-def _turn_of(session: Session, turn_index: int) -> ConversationTurn:
-    """The turn at ``turn_index``, or a typed 404."""
-    turns = session.conversation.turns
-    if turn_index >= len(turns):
-        raise ApiError(404, CODE_NOT_FOUND, "No such turn in this session.")
-    return turns[turn_index]
+def _carry_forward(rebuilt: AppointmentBrief, previous: AppointmentBrief) -> AppointmentBrief:
+    """Move the patient's own work onto a freshly built brief.
 
+    Rebuilt from the conversation, ``rebuilt`` knows about the research and
+    nothing about the person reading it. Four things belong to the patient and
+    have to survive: the document identifier, so a printout keeps its reference;
+    their topic and notes; the questions they wrote themselves; and the sections
+    they chose to include.
 
-def _brief_of(session: Session, turn_index: int) -> AppointmentBrief:
-    """The server-owned brief, built once on first access.
-
-    Refuses for a turn that has no brief: a failure has no answer to build from,
-    and an escalation cites nothing and offers no takeaway.
+    Their own questions are appended after the suggested ones rather than
+    merged into them, because their order relative to the evidence questions was
+    never meaningful — and appending is the one arrangement that cannot silently
+    drop one.
     """
-    existing = session.get_brief(turn_index)
-    if existing is not None:
+    own_questions = [
+        question
+        for question in previous.questions
+        if question.origin is ContentOrigin.USER_AUTHORED
+    ]
+    questions = [*rebuilt.questions, *own_questions][:MAX_QUESTIONS]
+    return rebuilt.model_copy(
+        update={
+            "document_id": previous.document_id,
+            "user": previous.user,
+            "questions": questions,
+            "included_sections": list(previous.included_sections),
+        }
+    )
+
+
+def _brief_of(session: Session) -> AppointmentBrief:
+    """The conversation's brief, built on first access and rebuilt as it grows.
+
+    Refuses only when there is nothing to build from. A conversation of nothing
+    but escalations and failures has no recap and no questions, and an empty
+    document with a disclaimer on it is not a brief.
+    """
+    turn_count = len(session.conversation.turns)
+    existing = session.get_conversation_brief()
+    # The transcript covers one entry per turn, so its length is exactly how
+    # much of the conversation the cached brief has seen.
+    if existing is not None and len(existing.transcript) == turn_count:
         return existing
 
-    turn = _turn_of(session, turn_index)
-    presentation = turn.outcome.presentation
-    if presentation is None or presentation.answer.action is AnswerAction.EMERGENCY:
-        raise ApiError(404, CODE_NOT_FOUND, "This turn has no appointment brief.")
+    rebuilt = build_conversation_brief(session.conversation, app_version="0.1.0")
+    if not rebuilt.summary and not rebuilt.questions:
+        raise ApiError(404, CODE_NOT_FOUND, "This conversation has no appointment brief yet.")
 
-    brief = build_brief(presentation.answer, presentation.numbering, app_version="0.1.0")
-    session.set_brief(turn_index, brief)
+    brief = _carry_forward(rebuilt, existing) if existing is not None else rebuilt
+    session.set_conversation_brief(brief)
     return brief
 
 
-def _store(session: Session, turn_index: int, brief: AppointmentBrief) -> BriefResponse:
+def _store(session: Session, brief: AppointmentBrief) -> BriefResponse:
     """Persist an edited brief and render the response."""
-    session.set_brief(turn_index, brief)
-    return _render(brief, turn_index)
+    session.set_conversation_brief(brief)
+    return _render(brief)
 
 
-def _render(brief: AppointmentBrief, turn_index: int) -> BriefResponse:
+def _render(brief: AppointmentBrief) -> BriefResponse:
     """The brief as the client sees it, plus the one-page fit estimate."""
     fit = estimate_fit(brief)
     return BriefResponse(
         document_id=brief.document_id,
-        turn_index=turn_index,
         topic=brief.user.topic,
         notes=brief.user.notes,
         questions=[
@@ -153,6 +190,8 @@ def _render(brief: AppointmentBrief, turn_index: int) -> BriefResponse:
         ],
         included_sections=[str(section) for section in brief.included_sections],
         available_sections=[str(section) for section in BriefSection],
+        default_sections=[str(section) for section in DEFAULT_SECTIONS],
+        transcript_turn_count=len(brief.transcript),
         fits_one_page=fit.fits,
         fill_ratio=fit.fill_ratio,
         overflow_advice=list(overflow_advice(brief)) if not fit.fits else [],
@@ -162,92 +201,66 @@ def _render(brief: AppointmentBrief, turn_index: int) -> BriefResponse:
 
 
 @router.get("", response_model=BriefResponse, summary="Read the brief")
-def read_brief(session: SessionDep, turn_index: int = TurnIndex) -> BriefResponse:
+def read_brief(session: SessionDep) -> BriefResponse:
     """Build the brief on first access, then return the stored one."""
-    return _render(_brief_of(session, turn_index), turn_index)
+    return _render(_brief_of(session))
 
 
 @router.put("/topic", response_model=BriefResponse, summary="Set the topic")
-def put_topic(
-    payload: BriefTopicRequest, session: SessionDep, turn_index: int = TurnIndex
-) -> BriefResponse:
+def put_topic(payload: BriefTopicRequest, session: SessionDep) -> BriefResponse:
     """The patient's own 'what I want to talk about' line."""
-    brief = _brief_of(session, turn_index)
-    return _store(session, turn_index, _edit(set_topic, brief, payload.topic))
+    return _store(session, _edit(set_topic, _brief_of(session), payload.topic))
 
 
 @router.put("/notes", response_model=BriefResponse, summary="Set the notes")
-def put_notes(
-    payload: BriefNotesRequest, session: SessionDep, turn_index: int = TurnIndex
-) -> BriefResponse:
+def put_notes(payload: BriefNotesRequest, session: SessionDep) -> BriefResponse:
     """The patient's own notes."""
-    brief = _brief_of(session, turn_index)
-    return _store(session, turn_index, _edit(set_notes, brief, payload.notes))
+    return _store(session, _edit(set_notes, _brief_of(session), payload.notes))
 
 
 @router.post("/questions", response_model=BriefResponse, summary="Add a question")
-def post_question(
-    payload: BriefQuestionRequest, session: SessionDep, turn_index: int = TurnIndex
-) -> BriefResponse:
+def post_question(payload: BriefQuestionRequest, session: SessionDep) -> BriefResponse:
     """Add a question the patient wrote. Marked as theirs, never as evidence."""
-    brief = _brief_of(session, turn_index)
-    return _store(session, turn_index, _edit(add_question, brief, payload.text))
+    return _store(session, _edit(add_question, _brief_of(session), payload.text))
 
 
 @router.delete(
     "/questions/{question_id}", response_model=BriefResponse, summary="Remove a question"
 )
-def delete_question(
-    session: SessionDep, question_id: str, turn_index: int = TurnIndex
-) -> BriefResponse:
+def delete_question(session: SessionDep, question_id: str) -> BriefResponse:
     """Remove one question by identifier."""
-    brief = _brief_of(session, turn_index)
-    return _store(session, turn_index, _edit(remove_question, brief, question_id))
+    return _store(session, _edit(remove_question, _brief_of(session), question_id))
 
 
 @router.put("/questions/order", response_model=BriefResponse, summary="Reorder questions")
-def put_question_order(
-    payload: BriefQuestionOrderRequest, session: SessionDep, turn_index: int = TurnIndex
-) -> BriefResponse:
+def put_question_order(payload: BriefQuestionOrderRequest, session: SessionDep) -> BriefResponse:
     """Reorder by identifier. The set must match exactly; nothing is added here."""
-    brief = _brief_of(session, turn_index)
-    return _store(session, turn_index, _edit(reorder_questions, brief, payload.order))
+    return _store(session, _edit(reorder_questions, _brief_of(session), payload.order))
 
 
 @router.put("/sections", response_model=BriefResponse, summary="Choose sections")
-def put_sections(
-    payload: BriefSectionsRequest, session: SessionDep, turn_index: int = TurnIndex
-) -> BriefResponse:
+def put_sections(payload: BriefSectionsRequest, session: SessionDep) -> BriefResponse:
     """Choose which sections the export includes.
 
-    The disclaimer is always included and cannot be removed — the section list
-    the schema exposes does not contain it.
+    This is how the two add-ons are turned on: the patient posts the default
+    sections plus ``transcript``, or plus the research sections, or both. The
+    disclaimer is always included and cannot be removed -- the section list the
+    schema exposes does not contain it.
     """
-    brief = _brief_of(session, turn_index)
     try:
         sections = [BriefSection(value) for value in payload.sections]
     except ValueError:
         raise ApiError(400, CODE_INVALID_REQUEST, "Unknown section.") from None
-    return _store(session, turn_index, _edit(set_sections, brief, sections))
+    return _store(session, _edit(set_sections, _brief_of(session), sections))
 
 
-@router.get("/export/{fmt}", summary="Export the brief")
-def export_brief(session: SessionDep, fmt: str, turn_index: int = TurnIndex) -> Response:
-    """Render the brief and return it as an attachment.
+def _attachment(body: str | bytes, *, media_type: str, filename: str) -> Response:
+    """An export, as a download and nothing else.
 
-    Built in memory and streamed out. Nothing touches disk.
+    ``nosniff`` because a browser that guesses at a type can be talked into
+    executing one, and ``no-store`` because this is a patient's health document
+    passing through a cache that has no business keeping it.
     """
-    if fmt not in EXPORT_TYPES:
-        raise ApiError(404, CODE_NOT_FOUND, "Unknown export format.")
-    brief = _brief_of(session, turn_index)
-    bundle = build_export(brief)
-    media_type, extension = EXPORT_TYPES[fmt]
-    body = {"html": bundle.html, "text": bundle.text, "json": bundle.json_text}[fmt]
-
-    # The filename is built from the brief's own document id, which is generated
-    # by this application and matches a fixed grammar. No client-supplied string
-    # reaches the header, so a quote or a newline cannot be injected into it.
-    filename = f"appointment-brief-{_safe_id(bundle.document_id)}.{extension}"
     return Response(
         content=body,
         media_type=media_type,
@@ -256,6 +269,41 @@ def export_brief(session: SessionDep, fmt: str, turn_index: int = TurnIndex) -> 
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "no-store",
         },
+    )
+
+
+@router.get("/export/{fmt}", summary="Export the brief")
+def export_brief(session: SessionDep, fmt: str) -> Response:
+    """Render the brief and return it as an attachment.
+
+    Built in memory and streamed out. Nothing touches disk.
+
+    ``pdf`` is what the download button asks for; the three text formats remain
+    for a desktop browser, for pasting into a portal message, and for carrying
+    the structured brief somewhere else.
+    """
+    brief = _brief_of(session)
+
+    # The filename is built from the brief's own document id, which is generated
+    # by this application and matches a fixed grammar. No client-supplied string
+    # reaches the header, so a quote or a newline cannot be injected into it.
+    if fmt == PDF_FORMAT:
+        export = build_pdf_export(brief)
+        return _attachment(
+            export.pdf,
+            media_type=PDF_MEDIA_TYPE,
+            filename=f"appointment-brief-{_safe_id(export.document_id)}.pdf",
+        )
+
+    if fmt not in EXPORT_TYPES:
+        raise ApiError(404, CODE_NOT_FOUND, "Unknown export format.")
+    bundle = build_export(brief)
+    media_type, extension = EXPORT_TYPES[fmt]
+    body = {"html": bundle.html, "text": bundle.text, "json": bundle.json_text}[fmt]
+    return _attachment(
+        body,
+        media_type=media_type,
+        filename=f"appointment-brief-{_safe_id(bundle.document_id)}.{extension}",
     )
 
 

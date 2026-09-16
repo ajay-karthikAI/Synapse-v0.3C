@@ -6,11 +6,12 @@
     "claims",
     "questions",
     "sources",
-    "limitations"
+    "limitations",
+    "transcript"
   ],
   "claims": [
     {
-      "claim_id": "c1",
+      "claim_id": "t0-c1",
       "included": true,
       "source_numbers": [
         1
@@ -19,7 +20,7 @@
       "text": "HbA1c reflects average plasma glucose over 2-3 months."
     },
     {
-      "claim_id": "c2",
+      "claim_id": "t0-c2",
       "included": true,
       "source_numbers": [
         2
@@ -28,31 +29,34 @@
       "text": "Regular review supports earlier detection of complications."
     }
   ],
+  "default_sections": [
+    "topic",
+    "notes",
+    "summary",
+    "questions"
+  ],
   "disclaimer": "This is not a diagnosis and not personal medical advice. It is general information from published research to help you prepare for your appointment. Your clinician will assess your individual situation.",
   "document_id": "brief-fixture-0000",
   "export_warning": "This file will contain health information you entered and the research it is based on. It is saved to your own device and is not sent anywhere. Anyone who opens the file, or the folder it is in, can read it.",
-  "fill_ratio": 0.5862068965517241,
+  "fill_ratio": 0.29310344827586204,
   "fits_one_page": true,
   "included_sections": [
     "topic",
     "notes",
     "summary",
-    "claims",
-    "questions",
-    "sources",
-    "limitations"
+    "questions"
   ],
   "notes": "",
   "overflow_advice": [],
   "questions": [
     {
       "origin": "verified_evidence",
-      "question_id": "q1",
+      "question_id": "t0q1",
       "text": "What does my result mean for me specifically?"
     },
     {
       "origin": "verified_evidence",
-      "question_id": "q2",
+      "question_id": "t0q2",
       "text": "How often should this be rechecked?"
     }
   ],
@@ -73,5 +77,5 @@
     }
   ],
   "topic": "",
-  "turn_index": 0
+  "transcript_turn_count": 1
 }

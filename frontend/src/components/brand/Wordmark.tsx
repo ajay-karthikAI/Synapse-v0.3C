@@ -18,10 +18,8 @@ import { BrandMark } from "@/components/brand/BrandMark";
  * with the page beneath it. It takes the bold cut: Baskerville at 20px needs
  * the weight that the same face at 64px would be crushed by.
  *
- * "A Zenith Company" is small caps, widely tracked, in secondary ink. It is an
- * attribution, not a claim, and it is deliberately never placed inside the
- * sentence describing what the system is not — where a second organisation's
- * name would read as a co-signature on the medical content.
+ * The wordmark contains only the product name. Corporate attribution is not
+ * part of the patient-facing identity.
  */
 
 interface WordmarkProps {

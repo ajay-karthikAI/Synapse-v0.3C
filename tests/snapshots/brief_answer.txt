@@ -9,22 +9,22 @@ WHAT I WANT TO TALK ABOUT
 
 [written by you] why does my blood sugar keep going up?
 
-WHAT THE RESEARCH SAYS
-----------------------
+SUMMARY OF YOUR CONVERSATION
+----------------------------
 
 Your HbA1c test shows your average blood sugar over the past two to three months.
 
-DETAILS FROM PUBLISHED RESEARCH
--------------------------------
-
-- HbA1c reflects average plasma glucose over 2-3 months. [1]
-- Regular review supports earlier detection of complications. [2]
-
-QUESTIONS TO ASK
-----------------
+QUESTIONS TO ASK YOUR DOCTOR
+----------------------------
 
 1. What does my result mean for me specifically?
 2. How often should this be rechecked?
+
+THE RESEARCH BEHIND THIS
+------------------------
+
+- HbA1c reflects average plasma glucose over 2-3 months. [1]
+- Regular review supports earlier detection of complications. [2]
 
 WHAT THIS DOES NOT COVER
 ------------------------

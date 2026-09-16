@@ -1,5 +1,5 @@
 """
-Synapse — A Zenith Company
+Synapse
 Dark, mobile-first waiting room UI
 """
 
@@ -1158,7 +1158,6 @@ st.markdown("""
     </svg>
   </div>
   <h1 class="app-name">SYNAPSE</h1>
-  <p class="company-tag">A Zenith Company</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1315,19 +1314,28 @@ def render_turn(index, turn):
 
 
 def _render_brief_editor(index, turn, answer, numbering):
-    """The appointment brief: review, edit, choose sections, then export.
+    """The appointment brief: review, edit, choose add-ons, then export.
+
+    ONE brief for the conversation, reached from any answered turn, matching
+    `synapse/api/routes/brief.py`. It was one per turn here too, which meant a
+    patient who asked four questions was offered four documents.
 
     Nothing is written to disk or sent anywhere. Every export is an explicit
     click that hands bytes to the browser's download, and the privacy warning is
     shown before the buttons rather than after.
     """
     from synapse.brief import (
+        DEFAULT_SECTIONS,
         EXPORT_WARNING,
+        RESEARCH_SECTIONS,
+        TRANSCRIPT_SECTIONS,
         BriefSection,
+        ExportError,
         UserContent,
         add_question,
-        build_brief,
+        build_conversation_brief,
         build_export,
+        build_pdf_export,
         estimate_fit,
         overflow_advice,
         remove_question,
@@ -1337,27 +1345,54 @@ def _render_brief_editor(index, turn, answer, numbering):
         set_topic,
     )
 
-    state_key = f"brief-{index}"
+    # One key for the whole conversation, not one per turn. The companion key
+    # records how many turns the cached brief covers, so a new question widens
+    # the document instead of leaving a stale one behind.
+    state_key = "brief"
+    covered_key = "brief-turn-count"
+    turn_count = len(st.session_state.conversation.turns)
 
     with st.expander("Appointment brief", expanded=False):
-        # Built once per turn and kept in session memory only. Re-running the
-        # build would issue a new document identifier on every interaction.
-        if state_key not in st.session_state:
+        # Built on first open and rebuilt only when the conversation grows.
+        # Rebuilding on every interaction would issue a new document identifier
+        # each time, and the identifier is what a patient and a clinician use to
+        # refer to the same sheet of paper.
+        existing = st.session_state.get(state_key)
+        if existing is None or st.session_state.get(covered_key) != turn_count:
             # The artifact stamps come off the service config, which is the same
             # place telemetry reads its provenance from. They used to be read
             # from two session-state keys nothing ever set, so a brief and a
             # telemetry record could in principle have disagreed about which
             # corpus produced them.
             _svc = st.session_state.get("service")
-            st.session_state[state_key] = build_brief(
-                answer,
-                numbering,
+            rebuilt = build_conversation_brief(
+                st.session_state.conversation,
                 resolver=RESOLVER,
-                user=UserContent(topic=turn.query.strip()[:200]),
+                # Carried over so a rebuild does not discard the patient's own
+                # topic, notes, questions and choices. Seeded from the first
+                # question only when there is nothing to carry.
+                user=existing.user
+                if existing is not None
+                else UserContent(topic=turn.query.strip()[:200]),
+                document_id=existing.document_id if existing is not None else None,
                 app_version="0.1.0",
                 corpus_version=_svc.config.corpus_version if _svc else "",
                 index_version=_svc.config.index_version if _svc else "",
             )
+            if existing is not None:
+                own = [
+                    question
+                    for question in existing.questions
+                    if question.origin.value == "user_authored"
+                ]
+                rebuilt = rebuilt.model_copy(
+                    update={
+                        "questions": [*rebuilt.questions, *own][:12],
+                        "included_sections": list(existing.included_sections),
+                    }
+                )
+            st.session_state[state_key] = rebuilt
+            st.session_state[covered_key] = turn_count
         brief = st.session_state[state_key]
 
         st.caption(
@@ -1400,14 +1435,30 @@ def _render_brief_editor(index, turn, answer, numbering):
         if own_question.strip() and st.button("Add question", key=f"{state_key}-addq"):
             brief = add_question(brief, own_question)
 
-        chosen = st.multiselect(
-            "Sections to include",
-            options=[section.value for section in BriefSection],
-            default=[section.value for section in brief.included_sections],
-            key=f"{state_key}-sections",
-            help="The medical disclaimer is always included and cannot be removed.",
+        # Two add-ons rather than a list of all eight sections. The multiselect
+        # offered "claims", "sources" and "limitations" as separate decisions,
+        # which is a decision a patient has no basis for making and the reason
+        # the brief read as an engineering document.
+        st.markdown("**Add to the PDF**")
+        want_transcript = st.checkbox(
+            "Your conversation",
+            value=BriefSection.TRANSCRIPT in brief.included_sections,
+            key=f"{state_key}-addon-transcript",
+            help="Every question you asked in this session, and the answer given.",
         )
-        brief = set_sections(brief, [BriefSection(value) for value in chosen])
+        want_research = st.checkbox(
+            "The research behind it",
+            value=all(section in brief.included_sections for section in RESEARCH_SECTIONS),
+            key=f"{state_key}-addon-research",
+            help="The findings, their citation numbers, and the studies they came from.",
+        )
+        sections = list(DEFAULT_SECTIONS)
+        if want_transcript:
+            sections.extend(TRANSCRIPT_SECTIONS)
+        if want_research:
+            sections.extend(RESEARCH_SECTIONS)
+        brief = set_sections(brief, sections)
+        st.caption("The summary, your questions and the disclaimer are always included.")
         st.session_state[state_key] = brief
 
         # One-page fit: measured and reported, never silently shrunk.
@@ -1422,17 +1473,41 @@ def _render_brief_editor(index, turn, answer, numbering):
 
         st.info(EXPORT_WARNING, icon="🔒")
 
+        # The PDF is rendered by this process, not by the browser's print
+        # dialog. If the renderer is missing -- the streamlit extra can be
+        # installed without it -- say so and keep the other three working,
+        # rather than failing the whole panel.
+        try:
+            pdf = build_pdf_export(brief)
+        except ExportError:
+            pdf = None
+        if pdf is not None:
+            st.download_button(
+                "Download the PDF",
+                data=pdf.pdf,
+                file_name=pdf.filename,
+                mime="application/pdf",
+                key=f"{state_key}-pdf",
+                type="primary",
+                help=f"The brief as a PDF ({max(1, pdf.size // 1024)} KB).",
+            )
+        else:
+            st.caption(
+                "The PDF renderer is not installed in this environment. "
+                "The other formats below are unaffected."
+            )
+
         bundle = build_export(brief)
         sizes = bundle.sizes()
         left, middle, right = st.columns(3)
         with left:
             st.download_button(
-                "Print / PDF",
+                "Web page",
                 data=bundle.html,
                 file_name=bundle.html_filename,
                 mime="text/html",
                 key=f"{state_key}-html",
-                help=f"Open and print, or save as PDF ({sizes['html'] // 1024} KB).",
+                help=f"Open and print in a browser ({sizes['html'] // 1024} KB).",
             )
         with middle:
             st.download_button(

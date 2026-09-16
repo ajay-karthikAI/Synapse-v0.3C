@@ -92,6 +92,11 @@ class Session:
     # them through named operations; it never supplies one. See
     # synapse.api.routes.brief for why that matters.
     briefs: dict[int, AppointmentBrief] = field(default_factory=dict)
+    # The conversation-wide brief: ONE document spanning every turn, which is
+    # what a patient carries to an appointment. Rebuilt as turns are added,
+    # keeping its document id and the patient's own edits. Server-owned on the
+    # same terms as the per-turn briefs above.
+    conversation_brief: AppointmentBrief | None = None
     # client_request_id -> the envelope that request already produced.
     _idempotency: OrderedDict[str, object] = field(default_factory=OrderedDict)
     _turn_active: bool = False
@@ -188,6 +193,7 @@ class Session:
         with self.lock:
             self.conversation = Conversation()
             self.briefs.clear()
+            self.conversation_brief = None
             self._idempotency.clear()
             self._turn_active = False
 
@@ -200,6 +206,16 @@ class Session:
         """The server-owned brief for a turn, if one has been built."""
         with self.lock:
             return self.briefs.get(turn_index)
+
+    def set_conversation_brief(self, brief: AppointmentBrief) -> None:
+        """Store the conversation-wide brief."""
+        with self.lock:
+            self.conversation_brief = brief
+
+    def get_conversation_brief(self) -> AppointmentBrief | None:
+        """The conversation-wide brief, if one has been built."""
+        with self.lock:
+            return self.conversation_brief
 
 
 class SessionStore:

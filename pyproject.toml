@@ -66,6 +66,7 @@ api = [                                                 # Optional extra: the HT
   "pydantic>=2.7,<3",                                   # Already the core dependency; restated because the API layer is built on it
   "pyjwt>=2.9",                                         # HS256 access tokens. NOT hand-rolled: algorithm confusion is the classic JWT defect
   "httpx>=0.27",                                        # Required by fastapi.testclient; no network is ever contacted
+  "reportlab>=4.1",                                     # The appointment brief as a real PDF. Pure Python, so the image needs no Pango/cairo — WeasyPrint would have. Declared HERE rather than as a core dependency: `synapse.brief.render_pdf` imports it lazily, so the schema and the text renderer stay importable with pydantic alone.
 ]
 streamlit = [                                           # Optional extra: the LOCAL FALLBACK interface. NOT installed in the container.
   # Next.js over the FastAPI contract is the primary interface (docs/frontend.md).
@@ -79,6 +80,7 @@ streamlit = [                                           # Optional extra: the LO
   # stack when running locally: `pip install -e ".[streamlit,runtime,dev]"`.
   "streamlit>=1.56",                                    # The fallback UI shell only; every decision it renders comes from synapse.service
   "python-dotenv>=1.2",                                 # Loads OPENAI_API_KEY from a local .env; the container uses real environment variables
+  "reportlab>=4.1",                                     # Also in `api`. Restated rather than shared: the fallback must be able to produce the SAME PDF as the primary interface, and `app.py` degrades to the text formats with a notice if it is somehow absent.
 ]
 runtime = [                                             # Optional extra: the DEPLOYED container, which serves from a verified artifact
   "faiss-cpu>=1.8",                                     # Native dense backend; replaces the legacy VectorStore
@@ -207,5 +209,5 @@ exclude = "(^|/)(Data|Retrieval|Generation|Evaluation|\\.venv)/"
 # when present without stubs), so an inline comment is correct in one
 # environment and flagged as unused in the other.
 [[tool.mypy.overrides]]
-module = ["faiss.*", "openai.*", "numpy.*", "streamlit.*", "playwright.*", "axe_core_python.*", "boto3.*", "rank_bm25.*"]
+module = ["faiss.*", "openai.*", "numpy.*", "streamlit.*", "playwright.*", "axe_core_python.*", "boto3.*", "rank_bm25.*", "reportlab.*"]
 ignore_missing_imports = true

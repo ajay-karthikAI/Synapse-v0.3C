@@ -23,9 +23,18 @@ Three invariants the model enforces rather than documents
 What is deliberately absent
 ---------------------------
 No API key, no telemetry identifier, no session identifier, no provider
-metadata, no prompt text, no conversation history. Those are not filtered on
-export; there is nowhere in this model to put them, which is a stronger
-guarantee than a filter someone has to remember to run.
+metadata, no prompt text. Those are not filtered on export; there is nowhere in
+this model to put them, which is a stronger guarantee than a filter someone has
+to remember to run.
+
+The conversation itself used to be on that list, and is not any more.
+:class:`BriefTranscriptTurn` carries the patient's own questions and the answer
+summaries they were given, because a brief that recaps the visit is the thing a
+patient actually carries to an appointment. The narrower guarantee that replaces
+it: a transcript turn has exactly two text fields and a status, so there is
+still nowhere to put a prompt, an identifier or a provider name. It is also the
+one section that is off by default -- the patient opts in, per export, through
+:attr:`BriefSection.TRANSCRIPT`.
 
 The document identifier is random (``secrets.token_hex``) and carries no
 information about the user, the question, the session or the time. It exists so
@@ -53,6 +62,14 @@ MAX_TOPIC_CHARS = 200
 MAX_NOTE_CHARS = 1200
 MAX_QUESTION_CHARS = 300
 MAX_QUESTIONS = 12  # A brief with more than this is not a one-page brief
+
+# Transcript bounds. A session holds at most MAX_TURNS_PER_SESSION turns, so the
+# ceiling here is not what stops the document growing without limit -- the
+# session does that. It is a second bound, and it is the one that survives if
+# the session ceiling is ever raised.
+MAX_TRANSCRIPT_TURNS = 20
+MAX_TRANSCRIPT_QUESTION_CHARS = 1000
+MAX_TRANSCRIPT_ANSWER_CHARS = 4000
 
 
 def new_document_id() -> str:
@@ -108,6 +125,36 @@ class BriefSection(StrEnum):
     QUESTIONS = "questions"
     SOURCES = "sources"
     LIMITATIONS = "limitations"
+    TRANSCRIPT = "transcript"
+
+
+# What a brief prints unless the patient asks for more.
+#
+# Every section was on by default until this became a document aimed at a
+# patient rather than at the engineer who built it. The default was nine
+# sections deep -- verified claims with citation markers, a numbered source list
+# carrying PMIDs and DOIs, the answer layer's limitations, and a provenance
+# block naming corpus and index versions. All of that is real and none of it is
+# what somebody reads in a waiting room.
+#
+# So the default is now the recap: what was discussed, and what to ask. TOPIC
+# and NOTES stay in it because they are the patient's own words and render as
+# nothing at all when empty, which is the common case.
+DEFAULT_SECTIONS: tuple[BriefSection, ...] = (
+    BriefSection.TOPIC,
+    BriefSection.NOTES,
+    BriefSection.SUMMARY,
+    BriefSection.QUESTIONS,
+)
+
+# The add-ons, off unless asked for. Two groups, which is how the interface
+# offers them: the transcript, and the research behind the summary.
+TRANSCRIPT_SECTIONS: tuple[BriefSection, ...] = (BriefSection.TRANSCRIPT,)
+RESEARCH_SECTIONS: tuple[BriefSection, ...] = (
+    BriefSection.CLAIMS,
+    BriefSection.SOURCES,
+    BriefSection.LIMITATIONS,
+)
 
 
 class BriefSource(SynapseModel):
@@ -216,6 +263,80 @@ class UserContent(SynapseModel):
         return not (self.topic.strip() or self.notes.strip())
 
 
+class TurnStatus(StrEnum):
+    """What happened on one turn, as the transcript reports it.
+
+    A transcript that printed only the answered turns would be a flattering
+    edit of the visit, and the omission would fall hardest on the turn that
+    mattered most: an escalation is the one exchange a clinician most needs to
+    see. So every turn appears, and the ones that produced no answer say why.
+    """
+
+    ANSWERED = "answered"
+    NO_EVIDENCE = "no_evidence"  # Abstained: the sources had nothing to support an answer
+    CLINICIAN_REFERRAL = "clinician_referral"  # Routed to a human clinician rather than answered
+    URGENT_ADVICE = "urgent_advice"  # The red-flag detector fired; no research was searched
+    UNAVAILABLE = "unavailable"  # The turn failed; there is no answer to recap
+
+
+# What a transcript prints for a turn that produced no answer, keyed by status.
+#
+# Defined once, here with the enum, because both renderers need it and two
+# renderers each wording it themselves is how the PDF and the plain text end up
+# describing the same escalation differently. Stated as what Synapse did, never
+# as advice: advice on a printed sheet is advice nobody reviewed.
+STATUS_NOTES: dict[TurnStatus, str] = {
+    TurnStatus.NO_EVIDENCE: "Synapse found no research it could answer this from.",
+    TurnStatus.CLINICIAN_REFERRAL: "Synapse did not answer this and suggested asking a clinician.",
+    TurnStatus.URGENT_ADVICE: (
+        "Synapse did not answer this. It flagged the wording as possibly urgent and "
+        "advised contacting a clinic or emergency number."
+    ),
+    TurnStatus.UNAVAILABLE: "This question could not be answered because of a technical fault.",
+}
+
+
+class BriefTranscriptTurn(SynapseModel):
+    """One exchange, as it appears in the optional transcript.
+
+    Two text fields and a status, and that is the whole model. The narrowness is
+    the point: there is no field here for a prompt, a request identifier, a
+    model name or a retrieved chunk, so a transcript cannot carry one however
+    the renderer is changed later.
+
+    ``answer`` is the summary the patient was shown, not the claim list. The
+    claims live in :attr:`AppointmentBrief.claims` with their citation markers,
+    under the research add-on, so a statement never appears with the authority
+    of a verified claim in one place and without it in another.
+    """
+
+    index: int = Field(ge=0, description="Zero-based position in the conversation.")
+    question: str = Field(
+        min_length=1,
+        max_length=MAX_TRANSCRIPT_QUESTION_CHARS,
+        description="What the patient asked, in their own words.",
+    )
+    answer: str = Field(
+        default="",
+        max_length=MAX_TRANSCRIPT_ANSWER_CHARS,
+        description="The summary the patient was shown. Empty when none was produced.",
+    )
+    status: TurnStatus = Field(description="What the turn produced.")
+
+    @field_validator("question", "answer")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        """Trim incidental whitespace."""
+        return value.strip()
+
+    @model_validator(mode="after")
+    def _validate_turn(self) -> BriefTranscriptTurn:
+        """An answered turn has an answer; the others must not invent one."""
+        if self.status is TurnStatus.ANSWERED and not self.answer:
+            raise ValueError("an answered turn must carry the summary it produced")
+        return self
+
+
 class BriefProvenance(SynapseModel):
     """Which build, which sources, which index produced this brief."""
 
@@ -251,11 +372,19 @@ class AppointmentBrief(VersionedModel):
     questions: list[BriefQuestion] = Field(default_factory=list, max_length=MAX_QUESTIONS)
     sources: list[BriefSource] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
+    transcript: list[BriefTranscriptTurn] = Field(
+        default_factory=list,
+        max_length=MAX_TRANSCRIPT_TURNS,
+        description="Every exchange in the conversation. Printed only as an opt-in add-on.",
+    )
     disclaimer: str = Field(min_length=1, description="The permanent disclaimer. Never optional.")
     provenance: BriefProvenance
     included_sections: list[BriefSection] = Field(
-        default_factory=lambda: list(BriefSection),
-        description="Sections the user chose to keep. The disclaimer is not a member.",
+        default_factory=lambda: list(DEFAULT_SECTIONS),
+        description=(
+            "Sections the user chose to keep, defaulting to the recap. The disclaimer is "
+            "not a member."
+        ),
     )
 
     @field_validator("document_id")
@@ -290,6 +419,13 @@ class AppointmentBrief(VersionedModel):
         numbers = [source.number for source in self.sources]
         if len(numbers) != len(set(numbers)):
             raise ValueError("source numbers must be unique within a brief")
+
+        indices = [turn.index for turn in self.transcript]
+        if indices != sorted(set(indices)):
+            # Out of order or duplicated means a turn was dropped, repeated or
+            # reshuffled somewhere upstream. A transcript that misreports the
+            # order of a conversation is worse than no transcript.
+            raise ValueError("transcript turns must be unique and in conversation order")
         return self
 
     def includes(self, section: BriefSection) -> bool:
@@ -319,6 +455,10 @@ class AppointmentBrief(VersionedModel):
         """Questions that will print, in their current order."""
         return list(self.questions) if self.includes(BriefSection.QUESTIONS) else []
 
+    def visible_transcript(self) -> list[BriefTranscriptTurn]:
+        """Transcript turns that will print. Empty unless the add-on is chosen."""
+        return list(self.transcript) if self.includes(BriefSection.TRANSCRIPT) else []
+
     def cited_source_numbers(self) -> set[int]:
         """Numbers referenced by the claims that will print.
 
@@ -333,19 +473,27 @@ class AppointmentBrief(VersionedModel):
 
 
 __all__ = [
+    "DEFAULT_SECTIONS",
     "DOCUMENT_ID_BYTES",
     "MAX_NOTE_CHARS",
     "MAX_QUESTIONS",
     "MAX_QUESTION_CHARS",
     "MAX_TOPIC_CHARS",
+    "MAX_TRANSCRIPT_ANSWER_CHARS",
+    "MAX_TRANSCRIPT_QUESTION_CHARS",
+    "MAX_TRANSCRIPT_TURNS",
+    "RESEARCH_SECTIONS",
+    "TRANSCRIPT_SECTIONS",
     "AppointmentBrief",
     "BriefClaim",
     "BriefProvenance",
     "BriefQuestion",
     "BriefSection",
     "BriefSource",
+    "BriefTranscriptTurn",
     "ContentOrigin",
     "SupportLevel",
+    "TurnStatus",
     "UserContent",
     "new_document_id",
 ]

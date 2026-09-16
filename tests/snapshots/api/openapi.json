@@ -235,7 +235,7 @@
       },
       "BriefResponse": {
         "additionalProperties": false,
-        "description": "The server-owned brief. A client edits it by named operation only.",
+        "description": "The server-owned brief. A client edits it by named operation only.\n\nOne brief per conversation, not one per answer, so there is no turn index\nhere: a patient leaves an appointment with one sheet of paper, and the\ndocument is rebuilt to span every turn as the conversation grows.",
         "properties": {
           "available_sections": {
             "items": {
@@ -249,6 +249,14 @@
               "$ref": "#/components/schemas/BriefClaimModel"
             },
             "title": "Claims",
+            "type": "array"
+          },
+          "default_sections": {
+            "description": "What the brief prints unless the patient asks for more: the recap.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Default Sections",
             "type": "array"
           },
           "disclaimer": {
@@ -307,14 +315,14 @@
             "title": "Topic",
             "type": "string"
           },
-          "turn_index": {
-            "title": "Turn Index",
+          "transcript_turn_count": {
+            "description": "Exchanges the transcript add-on would print. The turns themselves are not returned: the client already has them on screen, and re-sending the conversation to render a checkbox is a copy of the patient's questions travelling for no reason.",
+            "title": "Transcript Turn Count",
             "type": "integer"
           }
         },
         "required": [
           "document_id",
-          "turn_index",
           "topic",
           "notes",
           "questions",
@@ -322,6 +330,8 @@
           "sources",
           "included_sections",
           "available_sections",
+          "default_sections",
+          "transcript_turn_count",
           "fits_one_page",
           "fill_ratio",
           "overflow_advice",
@@ -1050,6 +1060,322 @@
         ]
       }
     },
+    "/v1/brief": {
+      "get": {
+        "description": "Build the brief on first access, then return the stored one.",
+        "operationId": "read_brief_v1_brief_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read the brief",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/v1/brief/export/{fmt}": {
+      "get": {
+        "description": "Render the brief and return it as an attachment.\n\nBuilt in memory and streamed out. Nothing touches disk.\n\n``pdf`` is what the download button asks for; the three text formats remain\nfor a desktop browser, for pasting into a portal message, and for carrying\nthe structured brief somewhere else.",
+        "operationId": "export_brief_v1_brief_export__fmt__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fmt",
+            "required": true,
+            "schema": {
+              "title": "Fmt",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export the brief",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/v1/brief/notes": {
+      "put": {
+        "description": "The patient's own notes.",
+        "operationId": "put_notes_v1_brief_notes_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefNotesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set the notes",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/v1/brief/questions": {
+      "post": {
+        "description": "Add a question the patient wrote. Marked as theirs, never as evidence.",
+        "operationId": "post_question_v1_brief_questions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefQuestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add a question",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/v1/brief/questions/order": {
+      "put": {
+        "description": "Reorder by identifier. The set must match exactly; nothing is added here.",
+        "operationId": "put_question_order_v1_brief_questions_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefQuestionOrderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reorder questions",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/v1/brief/questions/{question_id}": {
+      "delete": {
+        "description": "Remove one question by identifier.",
+        "operationId": "delete_question_v1_brief_questions__question_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove a question",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/v1/brief/sections": {
+      "put": {
+        "description": "Choose which sections the export includes.\n\nThis is how the two add-ons are turned on: the patient posts the default\nsections plus ``transcript``, or plus the research sections, or both. The\ndisclaimer is always included and cannot be removed -- the section list the\nschema exposes does not contain it.",
+        "operationId": "put_sections_v1_brief_sections_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefSectionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Choose sections",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/v1/brief/topic": {
+      "put": {
+        "description": "The patient's own 'what I want to talk about' line.",
+        "operationId": "put_topic_v1_brief_topic_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefTopicRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set the topic",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
     "/v1/session": {
       "delete": {
         "description": "Forget the turns, the briefs and the replay record. Keep the session.\n\n``deleted`` stays true because the thing a patient cares about -- what was\nsaid -- really is gone. See :meth:`synapse.api.sessions.Session.clear` for\nwhy the session record itself has to outlive it.",
@@ -1154,448 +1480,6 @@
         "summary": "Ask one question, streamed",
         "tags": [
           "turns"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief": {
-      "get": {
-        "description": "Build the brief on first access, then return the stored one.",
-        "operationId": "read_brief_v1_turns__turn_index__brief_get",
-        "parameters": [
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BriefResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Read the brief",
-        "tags": [
-          "brief"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief/export/{fmt}": {
-      "get": {
-        "description": "Render the brief and return it as an attachment.\n\nBuilt in memory and streamed out. Nothing touches disk.",
-        "operationId": "export_brief_v1_turns__turn_index__brief_export__fmt__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "fmt",
-            "required": true,
-            "schema": {
-              "title": "Fmt",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Export the brief",
-        "tags": [
-          "brief"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief/notes": {
-      "put": {
-        "description": "The patient's own notes.",
-        "operationId": "put_notes_v1_turns__turn_index__brief_notes_put",
-        "parameters": [
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BriefNotesRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BriefResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Set the notes",
-        "tags": [
-          "brief"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief/questions": {
-      "post": {
-        "description": "Add a question the patient wrote. Marked as theirs, never as evidence.",
-        "operationId": "post_question_v1_turns__turn_index__brief_questions_post",
-        "parameters": [
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BriefQuestionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BriefResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Add a question",
-        "tags": [
-          "brief"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief/questions/order": {
-      "put": {
-        "description": "Reorder by identifier. The set must match exactly; nothing is added here.",
-        "operationId": "put_question_order_v1_turns__turn_index__brief_questions_order_put",
-        "parameters": [
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BriefQuestionOrderRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BriefResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Reorder questions",
-        "tags": [
-          "brief"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief/questions/{question_id}": {
-      "delete": {
-        "description": "Remove one question by identifier.",
-        "operationId": "delete_question_v1_turns__turn_index__brief_questions__question_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "question_id",
-            "required": true,
-            "schema": {
-              "title": "Question Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BriefResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Remove a question",
-        "tags": [
-          "brief"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief/sections": {
-      "put": {
-        "description": "Choose which sections the export includes.\n\nThe disclaimer is always included and cannot be removed — the section list\nthe schema exposes does not contain it.",
-        "operationId": "put_sections_v1_turns__turn_index__brief_sections_put",
-        "parameters": [
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BriefSectionsRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BriefResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Choose sections",
-        "tags": [
-          "brief"
-        ]
-      }
-    },
-    "/v1/turns/{turn_index}/brief/topic": {
-      "put": {
-        "description": "The patient's own 'what I want to talk about' line.",
-        "operationId": "put_topic_v1_turns__turn_index__brief_topic_put",
-        "parameters": [
-          {
-            "description": "Zero-based index of the turn.",
-            "in": "path",
-            "name": "turn_index",
-            "required": true,
-            "schema": {
-              "description": "Zero-based index of the turn.",
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Turn Index",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BriefTopicRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BriefResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Set the topic",
-        "tags": [
-          "brief"
         ]
       }
     }

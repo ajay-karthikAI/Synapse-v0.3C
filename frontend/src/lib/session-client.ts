@@ -52,73 +52,77 @@ export async function deleteSession(): Promise<boolean> {
   return result?.deleted ?? false;
 }
 
-const briefPath = (turnIndex: number) => `v1/turns/${turnIndex}/brief`;
+// One brief for the whole conversation, so there is no turn index in the path.
+// It was `v1/turns/{i}/brief` until a patient asking four questions ended up
+// with four documents, none of which was the sheet of paper they needed.
+//
+// Exported so the proxy's allow-list can be tested against it: the move out of
+// `v1/turns` put the brief outside every prefix the proxy permitted, and the
+// proxy answered a 404 of its own making rather than calling the backend.
+export const BRIEF_PATH = "v1/brief";
 
-export function readBrief(turnIndex: number): Promise<Brief | null> {
-  return requestJson<Brief>(briefPath(turnIndex));
+export function readBrief(): Promise<Brief | null> {
+  return requestJson<Brief>(BRIEF_PATH);
 }
 
-export function setBriefTopic(turnIndex: number, topic: string): Promise<Brief | null> {
-  return requestJson<Brief>(`${briefPath(turnIndex)}/topic`, {
+export function setBriefTopic(topic: string): Promise<Brief | null> {
+  return requestJson<Brief>(`${BRIEF_PATH}/topic`, {
     method: "PUT",
     headers: JSON_HEADERS,
     body: JSON.stringify({ topic }),
   });
 }
 
-export function setBriefNotes(turnIndex: number, notes: string): Promise<Brief | null> {
-  return requestJson<Brief>(`${briefPath(turnIndex)}/notes`, {
+export function setBriefNotes(notes: string): Promise<Brief | null> {
+  return requestJson<Brief>(`${BRIEF_PATH}/notes`, {
     method: "PUT",
     headers: JSON_HEADERS,
     body: JSON.stringify({ notes }),
   });
 }
 
-export function addBriefQuestion(turnIndex: number, text: string): Promise<Brief | null> {
-  return requestJson<Brief>(`${briefPath(turnIndex)}/questions`, {
+export function addBriefQuestion(text: string): Promise<Brief | null> {
+  return requestJson<Brief>(`${BRIEF_PATH}/questions`, {
     method: "POST",
     headers: JSON_HEADERS,
     body: JSON.stringify({ text }),
   });
 }
 
-export function removeBriefQuestion(
-  turnIndex: number,
-  questionId: string,
-): Promise<Brief | null> {
+export function removeBriefQuestion(questionId: string): Promise<Brief | null> {
   // Encoded because it lands in the path. Server-generated today, but a client
   // that assumes an identifier is path-safe is one identifier change from a
   // broken request.
   return requestJson<Brief>(
-    `${briefPath(turnIndex)}/questions/${encodeURIComponent(questionId)}`,
+    `${BRIEF_PATH}/questions/${encodeURIComponent(questionId)}`,
     { method: "DELETE" },
   );
 }
 
-export function reorderBriefQuestions(
-  turnIndex: number,
-  order: readonly string[],
-): Promise<Brief | null> {
-  return requestJson<Brief>(`${briefPath(turnIndex)}/questions/order`, {
+export function reorderBriefQuestions(order: readonly string[]): Promise<Brief | null> {
+  return requestJson<Brief>(`${BRIEF_PATH}/questions/order`, {
     method: "PUT",
     headers: JSON_HEADERS,
     body: JSON.stringify({ order }),
   });
 }
 
-export function setBriefSections(
-  turnIndex: number,
-  sections: readonly string[],
-): Promise<Brief | null> {
-  return requestJson<Brief>(`${briefPath(turnIndex)}/sections`, {
+export function setBriefSections(sections: readonly string[]): Promise<Brief | null> {
+  return requestJson<Brief>(`${BRIEF_PATH}/sections`, {
     method: "PUT",
     headers: JSON_HEADERS,
     body: JSON.stringify({ sections }),
   });
 }
 
-/** The three export formats the brief route serves. */
-export const EXPORT_FORMATS = ["html", "text", "json"] as const;
+/**
+ * The export formats the brief route serves.
+ *
+ * `pdf` is first because it is what the download button asks for: the server
+ * renders it, so a patient on a phone taps once and gets a file, instead of
+ * hunting for "save as PDF" inside a print preview.
+ */
+export const EXPORT_FORMATS = ["pdf", "html", "text", "json"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 /**
@@ -130,6 +134,6 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number];
  * blob URL in the page would discard both and put the patient's own notes into
  * a JavaScript string for no gain.
  */
-export function exportUrl(turnIndex: number, format: ExportFormat): string {
-  return `/api/proxy/${briefPath(turnIndex)}/export/${format}`;
+export function exportUrl(format: ExportFormat): string {
+  return `/api/proxy/${BRIEF_PATH}/export/${format}`;
 }

@@ -310,10 +310,14 @@ class BriefClaimModel(_Strict):
 
 
 class BriefResponse(_Strict):
-    """The server-owned brief. A client edits it by named operation only."""
+    """The server-owned brief. A client edits it by named operation only.
+
+    One brief per conversation, not one per answer, so there is no turn index
+    here: a patient leaves an appointment with one sheet of paper, and the
+    document is rebuilt to span every turn as the conversation grows.
+    """
 
     document_id: str
-    turn_index: int
     topic: str
     notes: str
     questions: list[BriefQuestionModel]
@@ -321,6 +325,17 @@ class BriefResponse(_Strict):
     sources: list[SourceModel]
     included_sections: list[str]
     available_sections: list[str]
+    default_sections: list[str] = Field(
+        description="What the brief prints unless the patient asks for more: the recap."
+    )
+    transcript_turn_count: int = Field(
+        description=(
+            "Exchanges the transcript add-on would print. The turns themselves are not "
+            "returned: the client already has them on screen, and re-sending the "
+            "conversation to render a checkbox is a copy of the patient's questions "
+            "travelling for no reason."
+        )
+    )
     fits_one_page: bool
     fill_ratio: float
     overflow_advice: list[str]

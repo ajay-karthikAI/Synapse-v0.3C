@@ -76,7 +76,7 @@ def brief_fixture() -> dict[str, Any]:
     headers = authed(client)
     ask(client, headers).raise_for_status()
 
-    response = client.get("/v1/turns/0/brief", headers=headers)
+    response = client.get("/v1/brief", headers=headers)
     response.raise_for_status()
     payload: dict[str, Any] = response.json()
     payload["document_id"] = FIXED_DOCUMENT_ID

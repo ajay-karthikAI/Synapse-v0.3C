@@ -340,13 +340,10 @@ describe("the wordmark", () => {
   });
 
   it("carries no corporate attribution", () => {
-    // "A Zenith Company" was removed from the mark. The footer still carries
-    // the attribution once, which is where a byline belongs; repeating it under
-    // the product name made it read as part of the name.
     render(<Wordmark size="hero" />);
-    expect(screen.queryByText(/Zenith/)).toBeNull();
+    expect(screen.queryByText(/Company/)).toBeNull();
     render(<Wordmark />);
-    expect(screen.queryByText(/Zenith/)).toBeNull();
+    expect(screen.queryByText(/Company/)).toBeNull();
   });
 
   it("sets the name in the display serif at hero size", () => {

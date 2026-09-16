@@ -82,7 +82,7 @@ That last one is a safety decision, not a taste one: no clinician has reviewed
 any source in this system, and an interface that *looks* accredited makes a
 claim the system cannot support. `tests/e2e/shell.spec.ts` asserts the absence.
 
-"A Zenith Company" is set small, in secondary ink, with wide tracking. It is
+The product name is set small, in secondary ink, with wide tracking. It is
 deliberately never placed inside the sentence describing what the system is not,
 where a second organisation's name would read as a co-signature.
 
