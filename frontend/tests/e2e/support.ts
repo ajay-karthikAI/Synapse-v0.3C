@@ -113,10 +113,10 @@ export async function stubBackend(page: Page, options: StubOptions = {}) {
     route.fulfill({ json: fixture("transparency") }),
   );
 
-  await page.route("**/api/proxy/v1/turns/*/brief", async (route) =>
+  await page.route("**/api/proxy/v1/brief", async (route) =>
     route.fulfill({ json: fixture("brief") }),
   );
-  await page.route("**/api/proxy/v1/turns/*/brief/**", async (route) => {
+  await page.route("**/api/proxy/v1/brief/**", async (route) => {
     if (route.request().url().includes("/export/")) {
       return route.fulfill({
         status: 200,

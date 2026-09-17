@@ -90,10 +90,10 @@ async function stubBackend(page: Page, options: StubOptions = {}) {
     });
   });
 
-  await page.route("**/api/proxy/v1/turns/*/brief", async (route) =>
+  await page.route("**/api/proxy/v1/brief", async (route) =>
     route.fulfill({ json: fixture("brief") }),
   );
-  await page.route("**/api/proxy/v1/turns/*/brief/**", async (route) => {
+  await page.route("**/api/proxy/v1/brief/**", async (route) => {
     if (route.request().url().includes("/export/")) {
       return route.fulfill({
         status: 200,
@@ -103,6 +103,14 @@ async function stubBackend(page: Page, options: StubOptions = {}) {
           "x-content-type-options": "nosniff",
         },
         body: "APPOINTMENT BRIEF\n",
+      });
+    }
+    if (route.request().url().endsWith("/sections") && route.request().method() === "PUT") {
+      return route.fulfill({
+        json: {
+          ...(fixture("brief") as Record<string, unknown>),
+          included_sections: route.request().postDataJSON().sections,
+        },
       });
     }
     return route.fulfill({ json: fixture("brief") });
@@ -574,9 +582,11 @@ test.describe("the appointment brief", () => {
     const request = page.waitForRequest(
       (candidate) => candidate.url().includes("/brief/sections") && candidate.method() === "PUT",
     );
-    await page.getByRole("checkbox", { name: /Your conversation/ }).check();
+    const transcript = page.getByRole("checkbox", { name: /Your conversation/ });
+    await transcript.click();
     const sent = await request;
     expect(sent.postDataJSON().sections).toContain("transcript");
+    await expect(transcript).toBeChecked();
   });
 
   test("offers no topic or notes field", async ({ page }) => {
@@ -620,13 +630,13 @@ test.describe("the appointment brief", () => {
     await page.getByRole("button", { name: /Build an appointment brief/ }).click();
 
     for (const [name, format] of [
-      ["Download HTML", "html"],
-      ["Download plain text", "text"],
-      ["Download JSON", "json"],
+      ["a web page", "html"],
+      ["plain text", "text"],
+      ["structured data", "json"],
     ] as const) {
       await expect(page.getByRole("link", { name })).toHaveAttribute(
         "href",
-        `/api/proxy/v1/turns/0/brief/export/${format}`,
+        `/api/proxy/v1/brief/export/${format}`,
       );
     }
   });
@@ -638,7 +648,7 @@ test.describe("the appointment brief", () => {
     await page.getByRole("button", { name: /Build an appointment brief/ }).click();
 
     const download = page.waitForEvent("download");
-    await page.getByRole("link", { name: "Download plain text" }).click();
+    await page.getByRole("link", { name: "plain text" }).click();
     const saved = await download;
     // The server names the file, from the brief's own document id.
     expect(saved.suggestedFilename()).toBe("appointment-brief-e2e.txt");

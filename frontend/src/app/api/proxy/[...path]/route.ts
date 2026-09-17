@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { callBackend, filterResponseHeaders } from "@/lib/backend";
 import { isConfigured } from "@/lib/env";
+import { ALLOWED_PREFIXES } from "@/lib/proxy-paths";
 import { ACCESS_COOKIE, verifyAccessToken } from "@/lib/session";
 
 /**
@@ -31,22 +32,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // Streaming a turn can take up to the backend's 120-second deadline.
 export const maxDuration = 150;
-
-/**
- * Backend prefixes this application is allowed to reach.
- *
- * `v1/brief` is listed in its own right. The brief used to live under
- * `v1/turns/{i}/brief` and so was reachable through the `v1/turns` prefix by
- * accident; moving it to the session scope took it outside every prefix here,
- * and the proxy answered a 404 of its own making.
- */
-export const ALLOWED_PREFIXES = [
-  "v1/turns",
-  "v1/brief",
-  "v1/session",
-  "v1/transparency",
-  "readyz",
-] as const;
 
 /** Routes that may be called without a session. */
 const PUBLIC_PREFIXES = new Set<string>(["v1/transparency", "readyz"]);

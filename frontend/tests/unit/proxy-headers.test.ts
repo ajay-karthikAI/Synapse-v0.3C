@@ -132,8 +132,8 @@ describe("the allow-list covers the paths this application actually calls", () =
    * on either side would have seen, because each side was correct alone.
    */
   async function prefixes() {
-    const route = await import("@/app/api/proxy/[...path]/route");
-    return route.ALLOWED_PREFIXES as readonly string[];
+    const { ALLOWED_PREFIXES } = await import("@/lib/proxy-paths");
+    return ALLOWED_PREFIXES as readonly string[];
   }
 
   function reachable(path: string, allowed: readonly string[]): boolean {
